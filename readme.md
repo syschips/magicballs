@@ -18,3 +18,7 @@
 
 ## Todo
 ・このコードに「複数種類のボール」「AI」「オンライン（WebSocket）対戦」などを追加する。
+
+
+## Test
+https://syschips.github.io/magicballs/

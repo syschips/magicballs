@@ -40,8 +40,13 @@ function initMap(){
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       if(y===0||y===ROWS-1||x===0||x===COLS-1) map[y][x]=1;
-      else if(y%2===0 && x%2===0) map[y][x]=1;
       else map[y][x]=0;
+    }
+  }
+  // Add permanent walls (not destroyable) in a grid pattern, excluding edges
+  for(let y=2;y<ROWS-1;y+=2){
+    for(let x=2;x<COLS-1;x+=2){
+      map[y][x]=1;
     }
   }
   for(let y=1;y<ROWS-1;y++){
@@ -158,11 +163,13 @@ function updateBalls(dt){
     const k = balls[i];
     if(k.moving && !k.stopped){
       const move = k.speed * dt;
-      k.fx += k.dir.x * move;
-      k.fy += k.dir.y * move;
-      const aheadX = Math.floor(k.fx + 0.5*k.dir.x + 0.0001);
-      const aheadY = Math.floor(k.fy + 0.5*k.dir.y + 0.0001);
-      if(!inBounds(aheadX,aheadY) || cellAt(aheadX,aheadY)===1 || cellAt(aheadX,aheadY)===2){
+      const newFx = k.fx + k.dir.x * move;
+      const newFy = k.fy + k.dir.y * move;
+      const nextX = Math.floor(newFx + 0.0001);
+      const nextY = Math.floor(newFy + 0.0001);
+      
+      // Check if next tile is blocked
+      if(!inBounds(nextX,nextY) || cellAt(nextX,nextY)===1 || cellAt(nextX,nextY)===2){
         const elapsed = now - k.placedAt;
         const rem = Math.max(0, k.fuse - elapsed);
         if(rem <= 2.0){
@@ -171,8 +178,13 @@ function updateBalls(dt){
           continue;
         } else {
           k.moving = false; k.stopped = true;
-          k.fx = Math.round(k.fx); k.fy = Math.round(k.fy);
+          k.fx = Math.floor(k.fx + 0.5);
+          k.fy = Math.floor(k.fy + 0.5);
         }
+      } else {
+        // Move ball only if next tile is free
+        k.fx = newFx;
+        k.fy = newFy;
       }
     }
     const elapsedTotal = now - k.placedAt;
