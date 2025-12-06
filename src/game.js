@@ -43,12 +43,13 @@ function initMap(){
       else map[y][x]=0;
     }
   }
-  // Add permanent walls (not destroyable) in a grid pattern, excluding edges
+  // Add destroyable boxes (value=2) in a grid pattern
   for(let y=2;y<ROWS-1;y+=2){
     for(let x=2;x<COLS-1;x+=2){
-      map[y][x]=1;
+      map[y][x]=2;
     }
   }
+  // Add random destroyable boxes
   for(let y=1;y<ROWS-1;y++){
     for(let x=1;x<COLS-1;x++){
       if(map[y][x]!==0) continue;
@@ -178,8 +179,11 @@ function updateBalls(dt){
           continue;
         } else {
           k.moving = false; k.stopped = true;
-          k.fx = Math.floor(k.fx + 0.5);
-          k.fy = Math.floor(k.fy + 0.5);
+          // Keep ball in current tile (center it)
+          const currentX = Math.floor(k.fx + 0.0001);
+          const currentY = Math.floor(k.fy + 0.0001);
+          k.fx = currentX + 0.5;
+          k.fy = currentY + 0.5;
         }
       } else {
         // Move ball only if next tile is free
