@@ -23,11 +23,12 @@ function beep(freq, time=0.06){ try{ ensureAudio(); const o = audioCtx.createOsc
 
 let map = [];
 let balls = [];
+let items = [];
 let previews = [];
 let explosions = [];
 let players = [];
 let keys = {};
-let keybinds = {p1fire:'m', p2fire:'f'};
+let keybinds = {p1fire:' ', p2fire:'f'};
 let lastTime = performance.now();
 
 // Utility
@@ -70,14 +71,15 @@ function createPlayer(id,x,y,color){
     kuroStats:{speed:1.0, interval:0.6, stage:3.0},
     lastFire:-999,
     isCPU:false,
-    _ai:{timer:0,dir:{x:0,y:0}}
+    _ai:{timer:0,dir:{x:0,y:0}},
+    items:{maxBalls:0, range:0, speed:0}
   };
 }
 
 // Reset
 function resetGame(){
   initMap();
-  balls=[]; previews=[]; explosions=[];
+  balls=[]; items=[]; previews=[]; explosions=[];
   players = [
     createPlayer(1,1,1,'#ff6b6b'),
     createPlayer(2,COLS-2,ROWS-2,'#4da6ff')
@@ -91,6 +93,11 @@ function placeBall(player){
   if(!player.alive) return;
   const now = performance.now()/1000;
   if(now - player.lastFire < player.kuroStats.interval) return;
+  
+  // Check ball limit with maxBalls item effect
+  const maxBallsLimit = 3 + player.items.maxBalls;
+  if(balls.filter(b=>b.owner===player.id).length >= maxBallsLimit) return;
+  
   let dx = player.dir.x, dy = player.dir.y;
   if(dx===0 && dy===0) dy = 1;
   const ball = {
@@ -113,7 +120,9 @@ function schedulePreviewAndExplosion(ball){
   const cx = Math.floor(ball.fx + 0.0001);
   const cy = Math.floor(ball.fy + 0.0001);
   const cells = [{x:cx,y:cy}];
-  const maxRange = 6;
+  // Get owner's range item effect
+  const owner = players.find(p=>p.id===ball.owner);
+  const maxRange = 6 + (owner ? owner.items.range : 0);
   const dirs = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
   for(const d of dirs){
     for(let r=1;r<=maxRange;r++){
@@ -143,8 +152,19 @@ function schedulePreviewAndExplosion(ball){
 
 function triggerExplosionCell(x,y){
   explosions.push({x,y,life:0.45});
-  if(inBounds(x,y) && map[y][x]===2) map[y][x] = 0;
-  for(const p of players){ if(p.alive && p.x===x && p.y===y) p.alive=false; }
+  if(inBounds(x,y) && map[y][x]===2){
+    map[y][x] = 0;
+    // 30% chance to spawn item on destroyed box
+    if(Math.random() < 0.3){
+      const itemTypes = ['maxBalls', 'range', 'speed'];
+      const type = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+      items.push({x, y, type});
+    }
+  }
+  for(const p of players){
+    if(!p.alive) continue;
+    if(Math.floor(p.x + 0.0001)===x && Math.floor(p.y + 0.0001)===y) p.alive=false;
+  }
   for(let i=balls.length-1;i>=0;i--){
     const k = balls[i];
     const kx = Math.floor(k.fx + 0.0001), ky = Math.floor(k.fy + 0.0001);
@@ -225,18 +245,42 @@ function tryStartMove(player, dx, dy){
   if(!player.alive) return;
   if(player.moving) return;
   if(dx===0 && dy===0) return;
-  const nx = player.x + dx, ny = player.y + dy;
-  if(!inBounds(nx,ny)) return;
-  if(cellAt(nx,ny)!==0) return;
-  if(balls.some(k=>Math.floor(k.fx+0.0001)===nx && Math.floor(k.fy+0.0001)===ny)) return;
+  // Current continuous position
+  player.x = Math.round(player.x);
+  player.y = Math.round(player.y);
+  const alignedX = player.x;
+  const alignedY = player.y;
+
+  // Next cell to enter
+  const nxCell = Math.floor(alignedX + dx + 0.0001);
+  const nyCell = Math.floor(alignedY + dy + 0.0001);
+  if(!inBounds(nxCell, nyCell)) return;
+  if(cellAt(nxCell, nyCell)!==0) return;
+  if(balls.some(k=>Math.floor(k.fx+0.0001)===nxCell && Math.floor(k.fy+0.0001)===nyCell)) return;
+
   player.moving = true;
-  player.pendingTarget = {x:nx, y:ny};
+  // Move exactly 1 tile from the current position along the chosen axis
+  player.pendingTarget = {x: alignedX + dx, y: alignedY + dy};
   player.moveProgress = 0;
   player.dir = {x:dx, y:dy};
 }
 
+// Stop movement at the current interpolated position (for human players)
+function stopMoveAtCurrentPosition(player){
+  if(!player.moving || !player.pendingTarget) return;
+  const t = Math.min(1, Math.max(0, player.moveProgress));
+  player.x = player.x + (player.pendingTarget.x - player.x) * t;
+  player.y = player.y + (player.pendingTarget.y - player.y) * t;
+  // snap both axes to nearest grid line to keep alignment
+  player.x = Math.round(player.x);
+  player.y = Math.round(player.y);
+  player.moving = false;
+  player.pendingTarget = null;
+  player.moveProgress = 0;
+}
+
 function updatePlayers(dt){
-  const p1map = {left:'ArrowLeft', right:'ArrowRight', up:'ArrowUp', down:'ArrowDown'};
+  const p1map = {left:'arrowleft', right:'arrowright', up:'arrowup', down:'arrowdown'};
   const p2map = {left:'a', right:'d', up:'w', down:'s'};
   if(players[0].alive){
     const d1 = computeMoveDirectionFromKeys(p1map);
@@ -253,7 +297,8 @@ function updatePlayers(dt){
   for(const p of players){
     if(!p.alive) continue;
     if(p.moving && p.pendingTarget){
-      const speed = Math.max(0.5, p.speedTilesPerSec);
+      const baseSpeed = Math.max(0.5, p.speedTilesPerSec);
+      const speed = baseSpeed * (1 + p.items.speed * 0.2); // 20% per speed item
       p.moveProgress += dt * speed;
       if(p.moveProgress >= 1){
         p.x = p.pendingTarget.x;
@@ -261,6 +306,21 @@ function updatePlayers(dt){
         p.moving = false;
         p.pendingTarget = null;
         p.moveProgress = 0;
+      }
+    }
+    // If no input, stop at current interpolated position (human players only)
+    if(p.moving && !p.isCPU){
+      const d = p.id===1
+        ? computeMoveDirectionFromKeys(p1map)
+        : computeMoveDirectionFromKeys(p2map);
+      if(d.dx === 0 && d.dy === 0) stopMoveAtCurrentPosition(p);
+    }
+    // Check item collection
+    for(let i=items.length-1;i>=0;i--){
+      const item = items[i];
+      if(Math.floor(p.x + 0.0001) === item.x && Math.floor(p.y + 0.0001) === item.y){
+        p.items[item.type]++;
+        items.splice(i,1);
       }
     }
   }
@@ -294,7 +354,7 @@ function updateMessage(msg){ const el=document.getElementById('message'); if(el)
 
 function render(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle = '#eaf6ff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);
   for(let y=0;y<ROWS;y++){
     for(let x=0;x<COLS;x++){
       const px = x*TILE, py = y*TILE;
@@ -312,7 +372,7 @@ function render(){
   for(const k of balls){
     const px = k.fx * TILE, py = k.fy * TILE;
     ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(px,py,TILE*0.18,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.font='14px sans-serif'; ctx.fillText('●', px-6, py+6);
+    ctx.fillStyle='#fff'; ctx.font='14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('●', px, py);
     const elapsed = performance.now()/1000 - k.placedAt;
     const rem = Math.max(0, k.fuse - elapsed);
     const barW = TILE*0.9 * (rem / k.fuse);
@@ -323,17 +383,37 @@ function render(){
     ctx.fillStyle = `rgba(255,120,0,${0.7*alpha})`;
     ctx.fillRect(e.x*TILE+6, e.y*TILE+6, TILE-12, TILE-12);
   }
+  // Draw items
+  for(const item of items){
+    const px = item.x * TILE, py = item.y * TILE;
+    // Draw different shapes/colors for item types
+    if(item.type === 'maxBalls'){
+      ctx.fillStyle = '#ff9999'; ctx.beginPath(); ctx.arc(px+TILE*0.5, py+TILE*0.5, TILE*0.2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('+B', px+TILE*0.5, py+TILE*0.5);
+    } else if(item.type === 'range'){
+      ctx.fillStyle = '#99ff99'; ctx.beginPath(); ctx.moveTo(px+TILE*0.5, py+TILE*0.3); ctx.lineTo(px+TILE*0.7, py+TILE*0.7); ctx.lineTo(px+TILE*0.3, py+TILE*0.7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('+R', px+TILE*0.5, py+TILE*0.5);
+    } else if(item.type === 'speed'){
+      ctx.fillStyle = '#9999ff'; ctx.beginPath(); ctx.moveTo(px+TILE*0.3, py+TILE*0.3); ctx.lineTo(px+TILE*0.7, py+TILE*0.5); ctx.lineTo(px+TILE*0.3, py+TILE*0.7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('+S', px+TILE*0.5, py+TILE*0.5);
+    }
+  }
   for(const p of players){
     const cx = (p.x + (p.moving && p.pendingTarget ? (p.pendingTarget.x - p.x) * p.moveProgress : 0) + 0.5) * TILE;
     const cy = (p.y + (p.moving && p.pendingTarget ? (p.pendingTarget.y - p.y) * p.moveProgress : 0) + 0.5) * TILE;
     if(p.alive){
       ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(cx,cy,TILE*0.28,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#fff'; ctx.font='16px sans-serif'; ctx.fillText(p.id===1?'A':'B', cx-6, cy+6);
+      ctx.fillStyle='#fff'; ctx.font='16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.id===1?'A':'B', cx, cy);
     } else {
       ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(cx,cy,18,8,Math.PI/4,0,Math.PI*2); ctx.fill();
       ctx.fillStyle='#fff'; ctx.fillText('X', cx-6, cy+6);
     }
   }
+  // Draw item UI
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = '#000'; ctx.font = '14px sans-serif';
+  ctx.fillText(`P1: B:${players[0].items.maxBalls} R:${players[0].items.range} S:${players[0].items.speed}`, 10, 10);
+  ctx.fillText(`P2: B:${players[1].items.maxBalls} R:${players[1].items.range} S:${players[1].items.speed}`, CANVAS_W-250, 10);
+  
   const msgEl = document.getElementById('message');
   if(msgEl) msgEl.textContent = `${players[0].alive? 'P1:生':'P1:死'} ・ ${players[1].alive? 'P2:生':'P2:死'}`;
 }
@@ -341,7 +421,14 @@ function render(){
 function roundRect(x,y,w,h,r,fill,stroke){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); if(fill) ctx.fill(); if(stroke) ctx.stroke(); }
 
 // Input
-window.addEventListener('keydown', e=>{ const k = e.key.toLowerCase(); keys[k]=true; });
+window.addEventListener('keydown', e=>{
+  const k = e.key.toLowerCase();
+  keys[k]=true;
+  // Prevent default scroll behavior for arrow keys and space
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)){
+    e.preventDefault();
+  }
+});
 window.addEventListener('keyup', e=>{ const k = e.key.toLowerCase(); keys[k]=false; });
 
 // Click to set P1 facing
@@ -362,7 +449,9 @@ document.getElementById('cpuToggle').addEventListener('change', (e)=>{ players[1
 document.getElementById('applyKeys').addEventListener('click', ()=>{
   const p1 = document.getElementById('p1fire').value.trim().toLowerCase();
   const p2 = document.getElementById('p2fire').value.trim().toLowerCase();
-  if(p1) keybinds.p1fire = p1; if(p2) keybinds.p2fire = p2;
+  const norm = (v)=> v==='space' ? ' ' : v;
+  if(p1) keybinds.p1fire = norm(p1);
+  if(p2) keybinds.p2fire = norm(p2);
 });
 
 // Update functions

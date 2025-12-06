@@ -18,13 +18,33 @@
     <canvas id="game" width="864" height="576"></canvas>
 
     <div id="help">
-      <p>P1: 矢印キーで移動（発射：M）｜P2: WASDで移動（発射：F）</p>
+      <h2>操作方法</h2>
+      <p><strong>Player 1:</strong> 矢印キーで移動、<strong>スペース</strong> でボール発射</p>
+      <p><strong>Player 2:</strong> <strong>W/A/S/D</strong> で移動、<strong>F</strong> でボール発射</p>
       <p>斜め移動はできません。複数同時押し時の優先度は <strong>左 &gt; 右 &gt; 下 &gt; 上</strong> です。</p>
-      <p>クリックで P1 の向きを変更できます（上下左右のどちらかに近い方向へ設定）。</p>
+      <p>マウスクリックで Player 1 の向きを変更できます（上下左右のどちらかに近い方向へ設定）。</p>
+      
+      <h2>ゲーム内容</h2>
+      <ul>
+        <li><strong>ボール：</strong>プレーヤーが発射する爆弾。移動し、壁やボックスに当たると停止します</li>
+        <li><strong>紺色の壁：</strong>ステージの外枠。壊せません</li>
+        <li><strong>茶色のボックス：</strong>破壊可能な障害物。爆発で壊すことができます</li>
+        <li><strong>黄色の予告範囲：</strong>ボール爆発前に爆発範囲を表示します（0.6秒間）</li>
+        <li><strong>オレンジの爆発：</strong>十字形に広がります。爆発範囲内のプレーヤーは死亡します</li>
+      </ul>
+
+      <h2>アイテム</h2>
+      <p>ボックスを破壊するとたまにアイテムが出現します。プレーヤーが同じマスに移動すると取得できます。</p>
+      <ul>
+        <li><strong style="color:#ff6666;">● +B (赤い円)</strong>：同時に設置できるボール数 +1（デフォルト3個）</li>
+        <li><strong style="color:#66ff66;">▲ +R (緑の三角)</strong>：爆発範囲 +1タイル（デフォルト6タイル）</li>
+        <li><strong style="color:#6666ff;">► +S (青い矢印)</strong>：プレーヤー移動速度 +20%</li>
+      </ul>
+      <p>画面上部に各プレーヤーのアイテム取得数が表示されます。例：<code>P1: B:2 R:1 S:0</code></p>
     </div>
 
     <div id="keybinds">
-      <label>P1 発射: <input id="p1fire" value="m" size="2"></label>
+      <label>P1 発射: <input id="p1fire" value="space" size="5"></label>
       <label>P2 発射: <input id="p2fire" value="f" size="2"></label>
       <button id="applyKeys">キー適用</button>
     </div>
