@@ -64,12 +64,6 @@ function updateMessage(msg) {
  * AI危険回避と発射処理を統合
  */
 function updatePlayersWithAI(dt) {
-  // P1の発射処理
-  if (state.players[0].alive && state.keys[state.keybinds.p1fire]) {
-    placeBall(state.players[0]);
-    state.keys[state.keybinds.p1fire] = false;
-  }
-
   // プレイヤー移動とアイテム取得（AIも内部で処理される）
   const playerAction = updatePlayers(dt, runAI);
   
@@ -77,9 +71,6 @@ function updatePlayersWithAI(dt) {
   if (playerAction && playerAction.action === 'fire') {
     placeBall(playerAction.player);
   }
-
-  // CPU移動中の危険回避は新しいAI system内で処理される
-  // （このループは削除）
 }
 
 /**

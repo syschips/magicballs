@@ -17,9 +17,9 @@ import { inBounds, cellAt, ballExists } from './utils.js';
 export function createPlayer(id, x, y, color) {
   return {
     id, x, y, color,
-    moving: false,           // 移動中フラグ
-    pendingTarget: null,     // 移動先座標
-    moveProgress: 0,         // 移動進捗(0-1)
+    moving: false,           // 移動中フラグ（AI用）
+    pendingTarget: null,     // 移動先座標（AI用）
+    moveProgress: 0,         // 移動進捗(0-1)（AI用）
     dir: { x: 0, y: 1 },    // 向いている方向(ボール発射方向)
     speedTilesPerSec: 5,    // 移動速度: 1タイル/0.2秒 = 5タイル/秒
     alive: true,            // 生存状態
@@ -27,6 +27,7 @@ export function createPlayer(id, x, y, color) {
     lastFire: -999,         // 最後にボールを発射した時刻
     isCPU: false,           // CPU制御フラグ
     _ai: { timer: 0, dir: { x: 0, y: 0 }, gameStartTime: performance.now() / 1000, justFired: false }, // AI用内部状態
+    _humanInput: { dx: 0, dy: 0 }, // 人間プレイヤー用入力状態
     items: { maxBalls: 0, range: 0, speed: 0 } // 取得したアイテム数
   };
 }
@@ -140,17 +141,22 @@ export function updatePlayers(dt, runAI) {
   const p1map = { left: 'arrowleft', right: 'arrowright', up: 'arrowup', down: 'arrowdown' };
   const p2map = { left: 'a', right: 'd', up: 'w', down: 's' };
 
-  // P1の入力処理(キーボード)
-  if (state.players[0].alive) {
-    const d1 = computeMoveDirectionFromKeys(p1map);
-    if (d1.dx !== 0 || d1.dy !== 0) {
-      console.log(`[P1 Input] dir=(${d1.dx},${d1.dy}), pos=(${state.players[0].x.toFixed(2)},${state.players[0].y.toFixed(2)}), moving=${state.players[0].moving}`);
-      tryStartMove(state.players[0], d1.dx, d1.dy);
-    }
-    if (state.keys[state.keybinds.p1fire]) {
-      // ボール発射処理は外部で実装
-      state.keys[state.keybinds.p1fire] = false;
-      return { player: state.players[0], action: 'fire' };
+  // 発射アクションを収集
+  let fireAction = null;
+
+  // P1の入力処理(人間プレイヤー - 連続移動)
+  if (!state.players[0].isCPU) {
+    if (state.players[0].alive) {
+      const d1 = computeMoveDirectionFromKeys(p1map);
+      state.players[0]._humanInput = { dx: d1.dx, dy: d1.dy };
+      if (state.keys[state.keybinds.p1fire]) {
+        console.log(`[P1 Fire] input=(${d1.dx},${d1.dy}), pos=(${state.players[0].x.toFixed(2)},${state.players[0].y.toFixed(2)})`);
+        state.keys[state.keybinds.p1fire] = false;
+        fireAction = { player: state.players[0], action: 'fire' };
+      }
+    } else {
+      // 死亡中は入力をクリア
+      state.players[0]._humanInput = { dx: 0, dy: 0 };
     }
   }
 
@@ -159,14 +165,16 @@ export function updatePlayers(dt, runAI) {
   if (state.players[1].isCPU) {
     p2Action = runAI(state.players[1], dt);
   } else {
-    const d2 = computeMoveDirectionFromKeys(p2map);
-    if (d2.dx !== 0 || d2.dy !== 0) {
-      console.log(`[P2 Input] dir=(${d2.dx},${d2.dy}), pos=(${state.players[1].x.toFixed(2)},${state.players[1].y.toFixed(2)}), moving=${state.players[1].moving}`);
-      tryStartMove(state.players[1], d2.dx, d2.dy);
-    }
-    if (state.keys[state.keybinds.p2fire]) {
-      state.keys[state.keybinds.p2fire] = false;
-      p2Action = { player: state.players[1], action: 'fire' };
+    if (state.players[1].alive) {
+      const d2 = computeMoveDirectionFromKeys(p2map);
+      state.players[1]._humanInput = { dx: d2.dx, dy: d2.dy };
+      if (state.keys[state.keybinds.p2fire]) {
+        state.keys[state.keybinds.p2fire] = false;
+        p2Action = { player: state.players[1], action: 'fire' };
+      }
+    } else {
+      // 死亡中は入力をクリア
+      state.players[1]._humanInput = { dx: 0, dy: 0 };
     }
   }
 
@@ -174,47 +182,56 @@ export function updatePlayers(dt, runAI) {
   for (const p of state.players) {
     if (!p.alive) continue; // 死亡中はスキップ
 
-    if (p.moving && p.pendingTarget) {
-      // CPUの場合、移動中に移動先が危険になったら中途停止
-      // (爆発が開始されたらそこに突っ込まないように)
-      if (p.isCPU) {
-        // dangerCellsFromBallsは外部で実装されている前提
-        // ここでは簡易的にスキップ
-      }
-
-      // 移動進捗を進める(speedアイテムで20%ずつ加速)
+    // AI用の移動処理（従来通り）
+    if (p.isCPU && p.moving && p.pendingTarget) {
       const baseSpeed = Math.max(0.5, p.speedTilesPerSec);
       const speed = baseSpeed * (1 + p.items.speed * 0.2);
-      const progressBefore = p.moveProgress;
       p.moveProgress += dt * speed;
-      if (p.id === 1 && Math.random() < 0.1) { // 10%の確率でログ出力（spam防止）
-        console.log(`[P${p.id} Move] dt=${dt.toFixed(4)}, speedTilesPerSec=${p.speedTilesPerSec}, baseSpeed=${baseSpeed}, speed=${speed.toFixed(2)}, progress: ${progressBefore.toFixed(3)} -> ${p.moveProgress.toFixed(3)}`);
-      }
 
       // 移動完了
       if (p.moveProgress >= 1) {
-        if (p.isCPU) {
-          console.log(`[Player Move] AI completed move from (${p.x},${p.y}) to (${p.pendingTarget.x},${p.pendingTarget.y})`);
-          // AIは整数座標に補正（浮動小数点誤差を防ぐ）
-          p.x = Math.round(p.pendingTarget.x);
-          p.y = Math.round(p.pendingTarget.y);
-        } else {
-          // 人間プレイヤーは自由な位置
-          p.x = p.pendingTarget.x;
-          p.y = p.pendingTarget.y;
-        }
+        console.log(`[Player Move] AI completed move from (${p.x},${p.y}) to (${p.pendingTarget.x},${p.pendingTarget.y})`);
+        // AIは整数座標に補正（浮動小数点誤差を防ぐ）
+        p.x = Math.round(p.pendingTarget.x);
+        p.y = Math.round(p.pendingTarget.y);
         p.moving = false;
         p.pendingTarget = null;
         p.moveProgress = 0;
       }
     }
 
-    // 人間プレイヤーのみ: キー入力がなくなったら中途停止
-    if (p.moving && !p.isCPU) {
-      const d = p.id === 1
-        ? computeMoveDirectionFromKeys(p1map)
-        : computeMoveDirectionFromKeys(p2map);
-      if (d.dx === 0 && d.dy === 0) stopMoveAtCurrentPosition(p);
+    // 人間プレイヤー用の連続移動処理
+    if (!p.isCPU && p._humanInput) {
+      const dx = p._humanInput.dx;
+      const dy = p._humanInput.dy;
+      
+      if (dx === 0 && dy === 0) {
+        // キーが離されている：その場で停止（位置はそのまま）
+        // 何もしない
+      } else {
+        // キーが押されている：移動を試みる
+        const baseSpeed = Math.max(0.5, p.speedTilesPerSec);
+        const speed = baseSpeed * (1 + p.items.speed * 0.2);
+        const moveAmount = dt * speed;
+        
+        // 移動先の座標を計算
+        const newX = p.x + dx * moveAmount;
+        const newY = p.y + dy * moveAmount;
+        
+        // 移動先の所属マスを判定
+        const targetCellX = Math.round(newX);
+        const targetCellY = Math.round(newY);
+        
+        // 通行可能かチェック(ボールは無視)
+        if (inBounds(targetCellX, targetCellY) && 
+            cellAt(targetCellX, targetCellY) === 0) {
+          // 移動可能:位置を更新
+          p.x = newX;
+          p.y = newY;
+          p.dir = { x: dx, y: dy }; // 向きを更新
+        }
+        // 移動不可の場合は位置をそのままにする（スナップしない）
+      }
     }
 
     // アイテム収集判定: 所属マス（四捨五入）でアイテムを取得
@@ -227,5 +244,6 @@ export function updatePlayers(dt, runAI) {
     }
   }
 
-  return p2Action;
+  // P1の発射アクションを優先的に返す
+  return fireAction || p2Action;
 }
