@@ -242,6 +242,27 @@ export function updatePlayers(dt, runAI) {
         state.items.splice(i, 1);
       }
     }
+
+    // ボールとの衝突判定: 残り時間2秒以下のボールを踏むと爆発
+    const now = performance.now() / 1000;
+    for (const ball of state.balls) {
+      const ballCellX = Math.floor(ball.fx);
+      const ballCellY = Math.floor(ball.fy);
+      const playerCellX = Math.round(p.x);
+      const playerCellY = Math.round(p.y);
+      
+      if (playerCellX === ballCellX && playerCellY === ballCellY) {
+        // 配置からの経過時間で残り時間を計算
+        const elapsed = now - ball.placedAt;
+        const remaining = ball.fuse - elapsed;
+        console.log(`[Ball Collision] P${p.id} stepped on ball! remaining=${remaining.toFixed(2)}s, fuse=${ball.fuse}, moving=${ball.moving}`);
+        if (remaining <= 2.0) {
+          // 残り時間2秒以下: 即座に爆発トリガー
+          console.log(`[Ball Trigger] Triggering explosion!`);
+          ball.placedAt = now - ball.fuse; // 導火線を0にして即座に爆発させる
+        }
+      }
+    }
   }
 
   // P1の発射アクションを優先的に返す
