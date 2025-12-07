@@ -24,3 +24,7 @@ export const AI_NORMAL_INTERVAL_MAX = 1.6; // 秒
 export const AI_DANGER_INTERVAL = 0.05; // 秒
 export const AI_FIRE_CHANCE = 0.25; // 25%
 export const AI_SNIPE_CHANCE = 0.4; // 40%
+export const AI_ATTACK_MODE_SNIPE_CHANCE = 0.7; // 70% (攻撃モード時)
+export const AI_ITEMS_THRESHOLD = 2; // アイテム確保判定の閾値
+export const AI_BREAK_BLOCK_CHANCE = 0.6; // 60% (探索モード時のブロック破壊確率)
+export const AI_IDLE_FIRE_TIMEOUT = 3.0; // 3秒 (AIがボールを発射していない場合のタイムアウト)

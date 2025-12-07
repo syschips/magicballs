@@ -70,33 +70,16 @@ function updatePlayersWithAI(dt) {
     state.keys[state.keybinds.p1fire] = false;
   }
 
-  // P2の処理(CPUまたは人間)
-  let p2Action = null;
-  if (state.players[1].isCPU) {
-    p2Action = runAI(state.players[1], dt);
-  } else if (state.players[1].alive && state.keys[state.keybinds.p2fire]) {
-    placeBall(state.players[1]);
-    state.keys[state.keybinds.p2fire] = false;
+  // プレイヤー移動とアイテム取得（AIも内部で処理される）
+  const playerAction = updatePlayers(dt, runAI);
+  
+  // ボール発射処理
+  if (playerAction && playerAction.action === 'fire') {
+    placeBall(playerAction.player);
   }
 
-  // AI発射処理
-  if (p2Action && p2Action.action === 'fire') {
-    placeBall(p2Action.player);
-  }
-
-  // プレイヤー移動とアイテム取得
-  updatePlayers(dt, runAI);
-
-  // CPU移動中の危険回避
-  for (const p of state.players) {
-    if (!p.alive || !p.isCPU || !p.moving || !p.pendingTarget) continue;
-    const danger = dangerCellsFromBalls();
-    const tx = Math.floor(p.pendingTarget.x + 0.0001);
-    const ty = Math.floor(p.pendingTarget.y + 0.0001);
-    if (danger.has(`${tx},${ty}`)) {
-      stopMoveAtCurrentPosition(p);
-    }
-  }
+  // CPU移動中の危険回避は新しいAI system内で処理される
+  // （このループは削除）
 }
 
 /**

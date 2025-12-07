@@ -26,7 +26,7 @@ export function createPlayer(id, x, y, color) {
     kuroStats: { speed: 1.0, interval: 0.6, stage: 3.0 }, // ボール性能(将来の拡張用)
     lastFire: -999,         // 最後にボールを発射した時刻
     isCPU: false,           // CPU制御フラグ
-    _ai: { timer: 0, dir: { x: 0, y: 0 } }, // AI用内部状態
+    _ai: { timer: 0, dir: { x: 0, y: 0 }, gameStartTime: performance.now() / 1000, justFired: false }, // AI用内部状態
     items: { maxBalls: 0, range: 0, speed: 0 } // 取得したアイテム数
   };
 }
@@ -55,9 +55,18 @@ export function computeMoveDirectionFromKeys(mapping) {
  * 3. OKなら移動状態に設定し、1タイル分の移動をスケジュール
  */
 export function tryStartMove(player, dx, dy) {
-  if (!player.alive) return;    // 死亡中は移動不可
-  if (player.moving) return;     // 移動中は新規移動を受け付けない
-  if (dx === 0 && dy === 0) return;  // 方向が指定されていない
+  if (!player.alive) {
+    console.log(`[tryStartMove] Failed: player dead`);
+    return;
+  }
+  if (player.moving) {
+    console.log(`[tryStartMove] Failed: already moving (progress=${player.moveProgress})`);
+    return;
+  }
+  if (dx === 0 && dy === 0) {
+    console.log(`[tryStartMove] Failed: no direction`);
+    return;
+  }
 
   // 現在位置をグリッドにスナップ(浮動小数点誤差や中途停止のズレ補正)
   player.x = Math.round(player.x);
@@ -70,15 +79,25 @@ export function tryStartMove(player, dx, dy) {
   const nyCell = Math.floor(alignedY + dy + 0.0001);
 
   // 移動先の通行可能性チェック
-  if (!inBounds(nxCell, nyCell)) return;  // フィールド外
-  if (cellAt(nxCell, nyCell) !== 0) return;  // 壁または箱
-  if (ballExists(nxCell, nyCell)) return; // ボールがある
+  if (!inBounds(nxCell, nyCell)) {
+    console.log(`[tryStartMove] Failed: out of bounds (${nxCell},${nyCell})`);
+    return;
+  }
+  if (cellAt(nxCell, nyCell) !== 0) {
+    console.log(`[tryStartMove] Failed: blocked by cell=${cellAt(nxCell, nyCell)} at (${nxCell},${nyCell})`);
+    return;
+  }
+  if (ballExists(nxCell, nyCell)) {
+    console.log(`[tryStartMove] Failed: ball exists at (${nxCell},${nyCell})`);
+    return;
+  }
 
   // 移動開始: 正確に1タイル分の移動を設定
   player.moving = true;
   player.pendingTarget = { x: alignedX + dx, y: alignedY + dy };
   player.moveProgress = 0;
   player.dir = { x: dx, y: dy }; // 向きを更新(ボール発射方向に影響)
+  console.log(`[tryStartMove] Success: moving from (${alignedX},${alignedY}) to (${alignedX + dx},${alignedY + dy})`);
 }
 
 /**
@@ -122,7 +141,9 @@ export function updatePlayers(dt, runAI) {
   // P1の入力処理(キーボード)
   if (state.players[0].alive) {
     const d1 = computeMoveDirectionFromKeys(p1map);
-    tryStartMove(state.players[0], d1.dx, d1.dy);
+    if (d1.dx !== 0 || d1.dy !== 0) {
+      tryStartMove(state.players[0], d1.dx, d1.dy);
+    }
     if (state.keys[state.keybinds.p1fire]) {
       // ボール発射処理は外部で実装
       state.keys[state.keybinds.p1fire] = false;
@@ -136,7 +157,9 @@ export function updatePlayers(dt, runAI) {
     p2Action = runAI(state.players[1], dt);
   } else {
     const d2 = computeMoveDirectionFromKeys(p2map);
-    tryStartMove(state.players[1], d2.dx, d2.dy);
+    if (d2.dx !== 0 || d2.dy !== 0) {
+      tryStartMove(state.players[1], d2.dx, d2.dy);
+    }
     if (state.keys[state.keybinds.p2fire]) {
       state.keys[state.keybinds.p2fire] = false;
       p2Action = { player: state.players[1], action: 'fire' };
@@ -162,6 +185,9 @@ export function updatePlayers(dt, runAI) {
 
       // 移動完了
       if (p.moveProgress >= 1) {
+        if (p.isCPU) {
+          console.log(`[Player Move] AI completed move from (${p.x},${p.y}) to (${p.pendingTarget.x},${p.pendingTarget.y})`);
+        }
         p.x = p.pendingTarget.x;
         p.y = p.pendingTarget.y;
         p.moving = false;
