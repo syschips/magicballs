@@ -12,7 +12,7 @@ export const state = {
   explosions: [],   // 現在爆発中のセル一覧
   players: [],      // プレイヤー情報(P1, P2)
   keys: {},         // 現在押されているキー状態
-  keybinds: { p1fire: ' ', p2fire: 'f' }, // ボール発射キーの設定
+  keybinds: { p1fire: ' ', p2fire: 'f', p3fire: '', p4fire: '' }, // ボール発射キーの設定
   lastTime: performance.now() // フレームタイミング管理用
 };
 

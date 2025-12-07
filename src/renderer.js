@@ -154,10 +154,23 @@ export function render(ctx) {
   ctx.font = '14px sans-serif';
   ctx.fillText(`P1: B:${state.players[0].items.maxBalls} R:${state.players[0].items.range} S:${state.players[0].items.speed}`, 10, 10);
   ctx.fillText(`P2: B:${state.players[1].items.maxBalls} R:${state.players[1].items.range} S:${state.players[1].items.speed}`, CANVAS_W - 250, 10);
+  if (state.players.length > 2) {
+    ctx.fillText(`C: B:${state.players[2].items.maxBalls} R:${state.players[2].items.range} S:${state.players[2].items.speed}`, 10, 30);
+  }
+  if (state.players.length > 3) {
+    ctx.fillText(`D: B:${state.players[3].items.maxBalls} R:${state.players[3].items.range} S:${state.players[3].items.speed}`, CANVAS_W - 250, 30);
+  }
 
   // 生死状態表示
   const msgEl = document.getElementById('message');
-  if (msgEl) msgEl.textContent = `${state.players[0].alive ? 'P1:生' : 'P1:死'} ・ ${state.players[1].alive ? 'P2:生' : 'P2:死'}`;
+  let status = `${state.players[0].alive ? 'P1:生' : 'P1:死'} ・ ${state.players[1].alive ? 'P2:生' : 'P2:死'}`;
+  if (state.players.length > 2) {
+    status += ` ・ ${state.players[2].alive ? 'C:生' : 'C:死'}`;
+  }
+  if (state.players.length > 3) {
+    status += ` ・ ${state.players[3].alive ? 'D:生' : 'D:死'}`;
+  }
+  if (msgEl) msgEl.textContent = status;
 }
 
 /**

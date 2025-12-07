@@ -28,10 +28,23 @@ function resetGame() {
   initMap();
   resetState();
   state.players = [
-    createPlayer(1, 1, 1, '#ff6b6b'),              // P1: 左上
-    createPlayer(2, COLS - 2, ROWS - 2, '#4da6ff')     // P2: 右下
+    createPlayer(1, 0, 0, '#ff6b6b'),              // P1: 左上
+    createPlayer(2, COLS - 1, ROWS - 1, '#4da6ff') // P2: 右下
   ];
   state.players[1].isCPU = document.getElementById('cpuToggle').checked;
+  
+  // P3とP4を追加(チェックボックスがONの場合)
+  if (document.getElementById('cpu3Toggle').checked) {
+    const p3 = createPlayer(3, 0, ROWS - 1, '#66ff66'); // P3: 左下(緑)
+    p3.isCPU = true;
+    state.players.push(p3);
+  }
+  if (document.getElementById('cpu4Toggle').checked) {
+    const p4 = createPlayer(4, COLS - 1, 0, '#ffff66'); // P4: 右上(黄)
+    p4.isCPU = true;
+    state.players.push(p4);
+  }
+  
   updateMessage('');
 }
 
@@ -65,11 +78,15 @@ function updateMessage(msg) {
  */
 function updatePlayersWithAI(dt) {
   // プレイヤー移動とアイテム取得（AIも内部で処理される）
-  const playerAction = updatePlayers(dt, runAI);
+  const playerActions = updatePlayers(dt, runAI);
   
-  // ボール発射処理
-  if (playerAction && playerAction.action === 'fire') {
-    placeBall(playerAction.player);
+  // ボール発射処理（複数プレイヤー対応）
+  if (playerActions) {
+    for (const action of playerActions) {
+      if (action.action === 'fire') {
+        placeBall(action.player);
+      }
+    }
   }
 }
 

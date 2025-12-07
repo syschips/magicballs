@@ -178,6 +178,16 @@ export function updatePlayers(dt, runAI) {
     }
   }
 
+  // P3とP4のAI処理(CPU専用)
+  let p3Action = null;
+  let p4Action = null;
+  if (state.players.length > 2 && state.players[2].alive) {
+    p3Action = runAI(state.players[2], dt);
+  }
+  if (state.players.length > 3 && state.players[3].alive) {
+    p4Action = runAI(state.players[3], dt);
+  }
+
   // 全プレイヤーの移動処理とアイテム取得
   for (const p of state.players) {
     if (!p.alive) continue; // 死亡中はスキップ
@@ -265,6 +275,11 @@ export function updatePlayers(dt, runAI) {
     }
   }
 
-  // P1の発射アクションを優先的に返す
-  return fireAction || p2Action;
+  // すべての発射アクションを配列で返す
+  const actions = [];
+  if (fireAction) actions.push(fireAction);
+  if (p2Action) actions.push(p2Action);
+  if (p3Action) actions.push(p3Action);
+  if (p4Action) actions.push(p4Action);
+  return actions.length > 0 ? actions : null;
 }
