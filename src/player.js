@@ -68,36 +68,42 @@ export function tryStartMove(player, dx, dy) {
     return;
   }
 
-  // 現在位置をグリッドにスナップ(浮動小数点誤差や中途停止のズレ補正)
-  player.x = Math.round(player.x);
-  player.y = Math.round(player.y);
-  const alignedX = player.x;
-  const alignedY = player.y;
+  // 現在位置から相対移動（スナップしない）
+  const currentX = player.x;
+  const currentY = player.y;
+  const targetX = currentX + dx;
+  const targetY = currentY + dy;
 
-  // 移動先のタイル座標を計算
-  const nxCell = Math.floor(alignedX + dx + 0.0001);
-  const nyCell = Math.floor(alignedY + dy + 0.0001);
+  // 現在の所属マスと移動先の所属マス（四捨五入で判定）
+  const currentCellX = Math.round(currentX);
+  const currentCellY = Math.round(currentY);
+  const targetCellX = Math.round(targetX);
+  const targetCellY = Math.round(targetY);
 
-  // 移動先の通行可能性チェック
-  if (!inBounds(nxCell, nyCell)) {
-    console.log(`[tryStartMove] Failed: out of bounds (${nxCell},${nyCell})`);
-    return;
-  }
-  if (cellAt(nxCell, nyCell) !== 0) {
-    console.log(`[tryStartMove] Failed: blocked by cell=${cellAt(nxCell, nyCell)} at (${nxCell},${nyCell})`);
-    return;
-  }
-  if (ballExists(nxCell, nyCell)) {
-    console.log(`[tryStartMove] Failed: ball exists at (${nxCell},${nyCell})`);
-    return;
+  // 移動先のマスが現在と異なる場合のみチェック
+  // （同じマス内での移動は常に許可）
+  if (targetCellX !== currentCellX || targetCellY !== currentCellY) {
+    // 移動先の通行可能性チェック
+    if (!inBounds(targetCellX, targetCellY)) {
+      console.log(`[tryStartMove] Failed: out of bounds (${targetCellX},${targetCellY})`);
+      return;
+    }
+    if (cellAt(targetCellX, targetCellY) !== 0) {
+      console.log(`[tryStartMove] Failed: blocked by cell=${cellAt(targetCellX, targetCellY)} at (${targetCellX},${targetCellY})`);
+      return;
+    }
+    if (ballExists(targetCellX, targetCellY)) {
+      console.log(`[tryStartMove] Failed: ball exists at (${targetCellX},${targetCellY})`);
+      return;
+    }
   }
 
-  // 移動開始: 正確に1タイル分の移動を設定
+  // 移動開始: 現在位置から1タイル分の移動を設定
   player.moving = true;
-  player.pendingTarget = { x: alignedX + dx, y: alignedY + dy };
+  player.pendingTarget = { x: targetX, y: targetY };
   player.moveProgress = 0;
   player.dir = { x: dx, y: dy }; // 向きを更新(ボール発射方向に影響)
-  console.log(`[tryStartMove] Success: moving from (${alignedX},${alignedY}) to (${alignedX + dx},${alignedY + dy})`);
+  console.log(`[tryStartMove] Success: moving from (${currentX},${currentY}) to (${targetX},${targetY})`);
 }
 
 /**
@@ -110,13 +116,9 @@ export function stopMoveAtCurrentPosition(player) {
 
   // 現在の進捗率を取得
   const t = Math.min(1, Math.max(0, player.moveProgress));
-  // 補間位置を計算
+  // 補間位置を計算（グリッドスナップしない）
   player.x = player.x + (player.pendingTarget.x - player.x) * t;
   player.y = player.y + (player.pendingTarget.y - player.y) * t;
-
-  // 両軸を最寄りのグリッド線にスナップ(位置ズレ防止)
-  player.x = Math.round(player.x);
-  player.y = Math.round(player.y);
 
   // 移動状態をクリア
   player.moving = false;
@@ -142,6 +144,7 @@ export function updatePlayers(dt, runAI) {
   if (state.players[0].alive) {
     const d1 = computeMoveDirectionFromKeys(p1map);
     if (d1.dx !== 0 || d1.dy !== 0) {
+      console.log(`[P1 Input] dir=(${d1.dx},${d1.dy}), pos=(${state.players[0].x.toFixed(2)},${state.players[0].y.toFixed(2)}), moving=${state.players[0].moving}`);
       tryStartMove(state.players[0], d1.dx, d1.dy);
     }
     if (state.keys[state.keybinds.p1fire]) {
@@ -158,6 +161,7 @@ export function updatePlayers(dt, runAI) {
   } else {
     const d2 = computeMoveDirectionFromKeys(p2map);
     if (d2.dx !== 0 || d2.dy !== 0) {
+      console.log(`[P2 Input] dir=(${d2.dx},${d2.dy}), pos=(${state.players[1].x.toFixed(2)},${state.players[1].y.toFixed(2)}), moving=${state.players[1].moving}`);
       tryStartMove(state.players[1], d2.dx, d2.dy);
     }
     if (state.keys[state.keybinds.p2fire]) {
@@ -181,15 +185,24 @@ export function updatePlayers(dt, runAI) {
       // 移動進捗を進める(speedアイテムで20%ずつ加速)
       const baseSpeed = Math.max(0.5, p.speedTilesPerSec);
       const speed = baseSpeed * (1 + p.items.speed * 0.2);
+      const progressBefore = p.moveProgress;
       p.moveProgress += dt * speed;
+      if (p.id === 1 && Math.random() < 0.1) { // 10%の確率でログ出力（spam防止）
+        console.log(`[P${p.id} Move] dt=${dt.toFixed(4)}, speedTilesPerSec=${p.speedTilesPerSec}, baseSpeed=${baseSpeed}, speed=${speed.toFixed(2)}, progress: ${progressBefore.toFixed(3)} -> ${p.moveProgress.toFixed(3)}`);
+      }
 
       // 移動完了
       if (p.moveProgress >= 1) {
         if (p.isCPU) {
           console.log(`[Player Move] AI completed move from (${p.x},${p.y}) to (${p.pendingTarget.x},${p.pendingTarget.y})`);
+          // AIは整数座標に補正（浮動小数点誤差を防ぐ）
+          p.x = Math.round(p.pendingTarget.x);
+          p.y = Math.round(p.pendingTarget.y);
+        } else {
+          // 人間プレイヤーは自由な位置
+          p.x = p.pendingTarget.x;
+          p.y = p.pendingTarget.y;
         }
-        p.x = p.pendingTarget.x;
-        p.y = p.pendingTarget.y;
         p.moving = false;
         p.pendingTarget = null;
         p.moveProgress = 0;
@@ -204,10 +217,10 @@ export function updatePlayers(dt, runAI) {
       if (d.dx === 0 && d.dy === 0) stopMoveAtCurrentPosition(p);
     }
 
-    // アイテム収集判定: 同じタイルにいるアイテムを取得
+    // アイテム収集判定: 所属マス（四捨五入）でアイテムを取得
     for (let i = state.items.length - 1; i >= 0; i--) {
       const item = state.items[i];
-      if (Math.floor(p.x + 0.0001) === item.x && Math.floor(p.y + 0.0001) === item.y) {
+      if (Math.round(p.x) === item.x && Math.round(p.y) === item.y) {
         p.items[item.type]++;
         state.items.splice(i, 1);
       }

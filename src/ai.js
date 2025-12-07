@@ -27,10 +27,10 @@ import { tryStartMove } from './player.js';
  * @returns {boolean} - 通路でつながっているか
  */
 function arePlayersConnected(p1, p2) {
-  const startX = Math.floor(p1.x + 0.0001);
-  const startY = Math.floor(p1.y + 0.0001);
-  const goalX = Math.floor(p2.x + 0.0001);
-  const goalY = Math.floor(p2.y + 0.0001);
+  const startX = Math.round(p1.x);
+  const startY = Math.round(p1.y);
+  const goalX = Math.round(p2.x);
+  const goalY = Math.round(p2.y);
 
   if (startX === goalX && startY === goalY) return true;
 
@@ -97,8 +97,8 @@ function calculateDangerScore(x, y, danger, playerId) {
   
   // ボールからの距離（自分のボールは特に危険）
   for (const b of state.balls) {
-    const bx = Math.floor(b.fx + 0.0001);
-    const by = Math.floor(b.fy + 0.0001);
+    const bx = Math.floor(b.fx);
+    const by = Math.floor(b.fy);
     let dist = Math.abs(x - bx) + Math.abs(y - by);
     // 自分のボールは距離を短く評価（より危険視）
     if (b.owner === playerId) dist = Math.max(0, dist - 2);
@@ -215,8 +215,8 @@ function hasEscapeRoute(cx, cy, player, currentDanger) {
  */
 function simulateBallDanger(x, y, owner) {
   const danger = new Set();
-  const cx = Math.floor(x + 0.0001);
-  const cy = Math.floor(y + 0.0001);
+  const cx = Math.floor(x);
+  const cy = Math.floor(y);
   danger.add(`${cx},${cy}`);
 
   const maxRange = DEFAULT_EXPLOSION_RANGE + (owner ? owner.items.range : 0);
@@ -264,8 +264,8 @@ export function calculateDangerMap() {
   
   // 各ボールについて爆発範囲の危険度を計算
   for (const b of state.balls) {
-    const cx = Math.floor(b.fx + 0.0001);
-    const cy = Math.floor(b.fy + 0.0001);
+    const cx = Math.floor(b.fx);
+    const cy = Math.floor(b.fy);
     const elapsed = now - b.placedAt;
     const timeToExplosion = b.fuse - elapsed;
     
@@ -380,8 +380,8 @@ export function runAI(p, dt) {
   if (!p.alive) return null;
 
   const now = performance.now() / 1000;
-  const cx = Math.floor(p.x + 0.0001);
-  const cy = Math.floor(p.y + 0.0001);
+  const cx = Math.round(p.x);
+  const cy = Math.round(p.y);
   
   // タイマー更新
   p._ai.timer -= dt;

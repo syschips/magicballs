@@ -21,10 +21,10 @@ export function cellAt(x, y) {
 }
 
 /**
- * 指定座標にボールが存在するか
+ * 指定座標にボールが存在するか（切り捨てで所属マス判定）
  */
 export function ballExists(x, y) {
-  return state.balls.some(k => Math.floor(k.fx + 0.0001) === x && Math.floor(k.fy + 0.0001) === y);
+  return state.balls.some(k => Math.floor(k.fx) === x && Math.floor(k.fy) === y);
 }
 
 /**

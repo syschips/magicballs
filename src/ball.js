@@ -35,9 +35,13 @@ export function placeBall(player) {
   let dx = player.dir.x, dy = player.dir.y;
   if (dx === 0 && dy === 0) dy = 1; // デフォルトは下向き
   
+  // プレイヤーの所属マスの中心に配置
+  const cellX = Math.round(player.x);
+  const cellY = Math.round(player.y);
+  
   const ball = {
     id: Math.random().toString(36).slice(2, 10),
-    fx: player.x + 0.5, fy: player.y + 0.5,
+    fx: cellX + 0.5, fy: cellY + 0.5, // マスの中心に配置
     dir: { x: dx, y: dy },
     speed: Math.max(0, Math.min(2, player.kuroStats.speed)),
     fuse: Math.max(2, Math.min(5, player.kuroStats.stage)),
@@ -59,8 +63,8 @@ export function placeBall(player) {
  * 壁や箱で爆風が遮られるため、各方向に対して個別に範囲判定を行う。
  */
 export function schedulePreviewAndExplosion(ball) {
-  const cx = Math.floor(ball.fx + 0.0001);
-  const cy = Math.floor(ball.fy + 0.0001);
+  const cx = Math.floor(ball.fx);
+  const cy = Math.floor(ball.fy);
   const cells = [{ x: cx, y: cy }]; // 中心セル
 
   // 所有者のrangeアイテム効果を取得
@@ -136,17 +140,17 @@ export function triggerExplosionCell(x, y) {
     }
   }
 
-  // プレイヤーの死亡判定: 爆発位置にいるプレイヤーを死亡させる
+  // プレイヤーの死亡判定: 爆発位置にいるプレイヤーを死亡させる（四捨五入で所属マス判定）
   for (const p of state.players) {
     if (!p.alive) continue;
-    if (Math.floor(p.x + 0.0001) === x && Math.floor(p.y + 0.0001) === y) p.alive = false;
+    if (Math.round(p.x) === x && Math.round(p.y) === y) p.alive = false;
   }
 
-  // 連鎖反応: 爆発位置にあるボールを誘爆させる
+  // 連鎖反応: 爆発位置にあるボールを誘爆させる（切り捨てで所属マス判定）
   // 無限ループ防止のため、既にプレビューが登録済みのボールはスキップ
   for (let i = state.balls.length - 1; i >= 0; i--) {
     const k = state.balls[i];
-    const kx = Math.floor(k.fx + 0.0001), ky = Math.floor(k.fy + 0.0001);
+    const kx = Math.floor(k.fx), ky = Math.floor(k.fy);
     if (kx === x && ky === y) {
       state.balls.splice(i, 1);
       if (!state.previews.some(p => p.ballId === k.id)) {
@@ -162,6 +166,7 @@ export function triggerExplosionCell(x, y) {
  * - 壁や箱に衝突した場合:
  *   - 残り導火線≦2秒なら即座に爆発
  *   - それ以外はその位置で停止
+ * - 停止中のボールは進行方向の障害物が消えたら移動を再開
  * - 導火線が尽きたら爆発
  */
 export function updateBalls(dt) {
@@ -169,13 +174,34 @@ export function updateBalls(dt) {
   for (let i = state.balls.length - 1; i >= 0; i--) {
     const k = state.balls[i];
 
+    // 停止中のボールは進行方向の障害物が消えていないかチェック
+    if (k.stopped) {
+      const elapsed = now - k.placedAt;
+      const rem = Math.max(0, k.fuse - elapsed);
+      
+      // 残り時間が2秒以下になったら即座に爆発
+      if (rem <= BALL_COLLISION_EXPLODE_TIME) {
+        schedulePreviewAndExplosion(k);
+        state.balls.splice(i, 1);
+        continue;
+      }
+      
+      const nextX = Math.floor(k.fx + k.dir.x);
+      const nextY = Math.floor(k.fy + k.dir.y);
+      // 進行方向が通行可能になっていれば移動を再開
+      if (inBounds(nextX, nextY) && cellAt(nextX, nextY) === 0) {
+        k.moving = true;
+        k.stopped = false;
+      }
+    }
+
     // 移動中かつ停止していないボールを移動
     if (k.moving && !k.stopped) {
       const move = k.speed * dt;
       const newFx = k.fx + k.dir.x * move;
       const newFy = k.fy + k.dir.y * move;
-      const nextX = Math.floor(newFx + 0.0001);
-      const nextY = Math.floor(newFy + 0.0001);
+      const nextX = Math.floor(newFx);
+      const nextY = Math.floor(newFy);
 
       // 移動先が障害物かチェック
       if (!inBounds(nextX, nextY) || cellAt(nextX, nextY) === 1 || cellAt(nextX, nextY) === 2) {
@@ -187,12 +213,9 @@ export function updateBalls(dt) {
           state.balls.splice(i, 1);
           continue;
         } else {
-          // それ以外は現在位置で停止(中心に配置)
-          k.moving = false; k.stopped = true;
-          const currentX = Math.floor(k.fx + 0.0001);
-          const currentY = Math.floor(k.fy + 0.0001);
-          k.fx = currentX + 0.5;
-          k.fy = currentY + 0.5;
+          // それ以外はその場で停止（位置を変えない）
+          k.moving = false; 
+          k.stopped = true;
         }
       } else {
         // 通行可能なら移動
