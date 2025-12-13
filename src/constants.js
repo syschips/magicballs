@@ -10,8 +10,8 @@ export const CANVAS_W = COLS * TILE;
 export const CANVAS_H = ROWS * TILE;
 
 // ゲームバランス設定
-export const EXPLOSION_PREVIEW_DURATION = 0.6; // 秒
-export const EXPLOSION_WAVE_DELAY = 0.12; // 秒
+export const EXPLOSION_PREVIEW_DURATION = 0.3; // 秒
+export const EXPLOSION_WAVE_DELAY = 0.15; // 秒
 export const EXPLOSION_EFFECT_DURATION = 0.45; // 秒
 export const ITEM_DROP_CHANCE = 0.3; // 30%
 export const DEFAULT_MAX_BALLS = 3;

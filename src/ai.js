@@ -397,6 +397,21 @@ export function runAI(p, dt) {
     return null;
   }
 
+  // === 初期向き設定 ===
+  // ゲーム開始直後、L字の開口部方向に向きを初期化
+  const timeSinceStart = now - p._ai.gameStartTime;
+  if (timeSinceStart < 1.5 && (p.dir.x === 0 && p.dir.y === 1)) {
+    const centerX = Math.floor(COLS / 2);
+    const centerY = Math.floor(ROWS / 2);
+    const isLeft = cx < centerX;
+    const isTop = cy < centerY;
+    
+    if (isLeft && isTop) p.dir = { x: 1, y: 0 };      // 左上→右
+    else if (!isLeft && isTop) p.dir = { x: 0, y: 1 }; // 右上→下
+    else if (isLeft && !isTop) p.dir = { x: 0, y: -1 }; // 左下→上
+    else p.dir = { x: -1, y: 0 };                      // 右下→左
+  }
+
   // === 行動判定 ===
   // 危険な場合（100以上）または高危険度（500以上）なら即座に行動
   // タイマーが0以下の場合も行動
@@ -546,7 +561,6 @@ export function runAI(p, dt) {
   
   // === ボール発射判定 ===
   // ゲーム開始1秒後から、安全な場所（危険度 < 100）で発射を検討
-  const timeSinceStart = now - p._ai.gameStartTime;
   
   if (timeSinceStart > 1.0 && currentDanger < 100) {
     const target = state.players[0];

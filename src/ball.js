@@ -58,11 +58,13 @@ export function placeBall(player) {
  * 爆発のプレビューとスケジューリング
  * 手順:
  * 1. 爆発範囲を計算(十字型、所有者のrangeアイテムを加算)
- * 2. 0.6秒間プレビュー表示(黄色い点滅エフェクト)
- * 3. 中心から外側へ順次爆発(0.12秒間隔で段階的に広がる)
+ * 2. プレビュー表示(通常0.3秒、誘爆時は0秒)
+ * 3. 中心から外側へ順次爆発(0.15秒間隔で段階的に広がる)
  * 壁や箱で爆風が遮られるため、各方向に対して個別に範囲判定を行う。
+ * @param {Object} ball - 爆発するボール
+ * @param {boolean} immediate - true=誘爆(即座に爆発)、false=通常(予告あり)
  */
-export function schedulePreviewAndExplosion(ball) {
+export function schedulePreviewAndExplosion(ball, immediate = false) {
   const cx = Math.floor(ball.fx);
   const cy = Math.floor(ball.fy);
   const cells = [{ x: cx, y: cy }]; // 中心セル
@@ -83,17 +85,22 @@ export function schedulePreviewAndExplosion(ball) {
     }
   }
 
-  // 0.6秒間のプレビューを追加
-  state.previews.push({
-    cells,
-    until: performance.now() / 1000 + EXPLOSION_PREVIEW_DURATION,
-    ballId: ball.id,
-    origin: { x: cx, y: cy }
-  });
+  // 予告時間を決定（誘爆時は0、通常時は0.3秒）
+  const previewTime = immediate ? 0 : EXPLOSION_PREVIEW_DURATION;
+
+  // プレビューを追加（誘爆時も一瞬だけ登録して即座に削除）
+  if (previewTime > 0) {
+    state.previews.push({
+      cells,
+      until: performance.now() / 1000 + previewTime,
+      ballId: ball.id,
+      origin: { x: cx, y: cy }
+    });
+  }
 
   // プレビュー終了後に爆発を実行
   setTimeout(() => {
-    triggerExplosionCell(cx, cy); // 中心をまず爆発
+    triggerExplosionCell(cx, cy, true); // 中心をまず爆発（連鎖可能）
 
     // 距離別にグルーピングして時間差爆発を実現
     const grouped = {};
@@ -105,16 +112,18 @@ export function schedulePreviewAndExplosion(ball) {
     }
     const delays = Object.keys(grouped).map(k => parseInt(k)).sort((a, b) => a - b);
 
-    // 各距離のセルを120ms間隔で順次爆発(中心から外側へ波状に広がる演出)
+    // 各距離のセルを0.15秒間隔で順次爆発(中心から外側へ波状に広がる演出)
     delays.forEach((r, idx) => {
       setTimeout(() => {
-        for (const cell of grouped[r]) triggerExplosionCell(cell.x, cell.y);
+        for (const cell of grouped[r]) triggerExplosionCell(cell.x, cell.y, true);
       }, EXPLOSION_WAVE_DELAY * 1000 * (idx + 1));
     });
 
-    state.previews = state.previews.filter(p => p.ballId !== ball.id); // プレビューを削除
+    if (previewTime > 0) {
+      state.previews = state.previews.filter(p => p.ballId !== ball.id); // プレビューを削除
+    }
     beep(120, 0.12); // 爆発音
-  }, EXPLOSION_PREVIEW_DURATION * 1000);
+  }, previewTime * 1000);
 }
 
 /**
@@ -124,8 +133,11 @@ export function schedulePreviewAndExplosion(ball) {
  * 2. 箱があれば破壊し、30%の確率でアイテムをドロップ
  * 3. その位置にいるプレイヤーを死亡処理
  * 4. その位置にあるボールを誘爆(連鎖反応)
+ * @param {number} x - 爆発X座標
+ * @param {number} y - 爆発Y座標
+ * @param {boolean} canChain - 連鎖可能かどうか（trueで誘爆処理を行う）
  */
-export function triggerExplosionCell(x, y) {
+export function triggerExplosionCell(x, y, canChain = false) {
   // 爆発エフェクトを登録(0.45秒間表示)
   state.explosions.push({ x, y, life: EXPLOSION_EFFECT_DURATION });
 
@@ -147,14 +159,16 @@ export function triggerExplosionCell(x, y) {
   }
 
   // 連鎖反応: 爆発位置にあるボールを誘爆させる（切り捨てで所属マス判定）
-  // 無限ループ防止のため、既にプレビューが登録済みのボールはスキップ
-  for (let i = state.balls.length - 1; i >= 0; i--) {
-    const k = state.balls[i];
-    const kx = Math.floor(k.fx), ky = Math.floor(k.fy);
-    if (kx === x && ky === y) {
-      state.balls.splice(i, 1);
-      if (!state.previews.some(p => p.ballId === k.id)) {
-        schedulePreviewAndExplosion(k);
+  if (canChain) {
+    for (let i = state.balls.length - 1; i >= 0; i--) {
+      const k = state.balls[i];
+      const kx = Math.floor(k.fx), ky = Math.floor(k.fy);
+      if (kx === x && ky === y) {
+        state.balls.splice(i, 1);
+        // 既にプレビュー登録済みでなければ即座に誘爆
+        if (!state.previews.some(p => p.ballId === k.id)) {
+          schedulePreviewAndExplosion(k, true); // immediate=trueで即座に爆発
+        }
       }
     }
   }
