@@ -1,0 +1,13 @@
+# JavaScriptファイルのキャッシュを無効化
+<FilesMatch "\.(js|mjs)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</FilesMatch>
+
+# HTMLファイルのキャッシュを無効化
+<FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</FilesMatch>

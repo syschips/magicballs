@@ -2,9 +2,10 @@
  * プレイヤー関連の処理
  */
 
-import { COLS, ROWS } from './constants.js';
+import { COLS, ROWS, DEFAULT_LIVES, RESPAWN_INVINCIBILITY_TIME, POWERUP_TYPES, PLAYER_SPEED, BALL_TYPES, PLAYER_INDEX, BALL_REMAINING_TIME_TRIGGER, TILE, UI_TOP_HEIGHT } from './constants.js';
 import { state } from './state.js';
-import { inBounds, cellAt, ballExists } from './utils.js';
+import { inBounds, cellAt, ballExists, hasPowerup, applyPowerup, addScore } from './utils.js';
+import { createPowerupParticles } from './particle.js';
 
 /**
  * プレイヤーオブジェクトの生成
@@ -12,21 +13,33 @@ import { inBounds, cellAt, ballExists } from './utils.js';
  * @param {number} x - 初期X座標
  * @param {number} y - 初期Y座標
  * @param {string} color - 表示色
+ * @param {string} ballType - ボールタイプ ('kuro', 'shiro', 'kiiro')
  * @returns プレイヤーオブジェクト
  */
-export function createPlayer(id, x, y, color) {
+export function createPlayer(id, x, y, color, ballType = 'kuro') {
+  const ballStats = BALL_TYPES[ballType] || BALL_TYPES.kuro;
+  
   return {
     id, x, y, color,
+    spawnX: x, spawnY: y,   // リスポーン位置
     moving: false,           // 移動中フラグ（AI用）
     pendingTarget: null,     // 移動先座標（AI用）
     moveProgress: 0,         // 移動進捗(0-1)（AI用）
     dir: { x: 0, y: 1 },    // 向いている方向(ボール発射方向)
-    speedTilesPerSec: 5,    // 移動速度: 1タイル/0.2秒 = 5タイル/秒
+    speedTilesPerSec: ballStats.playerSpeed || PLAYER_SPEED,    // 移動速度（ボールタイプに応じて変化）
     alive: true,            // 生存状態
-    kuroStats: { speed: 1.0, interval: 0.6, stage: 3.0 }, // ボール性能(将来の拡張用)
+    lives: DEFAULT_LIVES, // ライフ数
+    score: 0,               // スコア
+    invincibilityTime: 0,   // 無敵時間
+    ballType: ballType,     // ボールタイプ
+    kuroStats: { 
+      speed: ballStats.speed, 
+      interval: ballStats.interval, 
+      stage: ballStats.fuse 
+    }, // ボール性能
     lastFire: -999,         // 最後にボールを発射した時刻
     isCPU: false,           // CPU制御フラグ
-    _ai: { timer: 0, dir: { x: 0, y: 0 }, gameStartTime: performance.now() / 1000, justFired: false }, // AI用内部状態
+    _ai: { timer: 0, dir: { x: 0, y: 0 }, gameStartTime: performance.now() / 1000 }, // AI用内部状態
     _humanInput: { dx: 0, dy: 0 }, // 人間プレイヤー用入力状態
     items: { maxBalls: 0, range: 0, speed: 0 } // 取得したアイテム数
   };
@@ -137,55 +150,159 @@ export function stopMoveAtCurrentPosition(player) {
  * 5. アイテム収集判定
  */
 export function updatePlayers(dt, runAI) {
+  if (!state || !state.players || state.players.length === 0) {
+    console.warn('[updatePlayers] No players exist');
+    return null;
+  }
+
   // 各プレイヤーのキーマッピング
   const p1map = { left: 'arrowleft', right: 'arrowright', up: 'arrowup', down: 'arrowdown' };
   const p2map = { left: 'a', right: 'd', up: 'w', down: 's' };
 
   // 発射アクションを収集
   let fireAction = null;
-
-  // P1の入力処理(人間プレイヤー - 連続移動)
-  if (!state.players[0].isCPU) {
-    if (state.players[0].alive) {
-      const d1 = computeMoveDirectionFromKeys(p1map);
-      state.players[0]._humanInput = { dx: d1.dx, dy: d1.dy };
-      if (state.keys[state.keybinds.p1fire]) {
-        console.log(`[P1 Fire] input=(${d1.dx},${d1.dy}), pos=(${state.players[0].x.toFixed(2)},${state.players[0].y.toFixed(2)})`);
-        state.keys[state.keybinds.p1fire] = false;
-        fireAction = { player: state.players[0], action: 'fire' };
-      }
-    } else {
-      // 死亡中は入力をクリア
-      state.players[0]._humanInput = { dx: 0, dy: 0 };
-    }
-  }
-
-  // P2の入力処理(CPUまたはキーボード)
   let p2Action = null;
-  if (state.players[1].isCPU) {
-    p2Action = runAI(state.players[1], dt);
-  } else {
-    if (state.players[1].alive) {
-      const d2 = computeMoveDirectionFromKeys(p2map);
-      state.players[1]._humanInput = { dx: d2.dx, dy: d2.dy };
-      if (state.keys[state.keybinds.p2fire]) {
-        state.keys[state.keybinds.p2fire] = false;
-        p2Action = { player: state.players[1], action: 'fire' };
-      }
-    } else {
-      // 死亡中は入力をクリア
-      state.players[1]._humanInput = { dx: 0, dy: 0 };
-    }
-  }
-
-  // P3とP4のAI処理(CPU専用)
   let p3Action = null;
   let p4Action = null;
-  if (state.players.length > 2 && state.players[2].alive) {
-    p3Action = runAI(state.players[2], dt);
-  }
-  if (state.players.length > 3 && state.players[3].alive) {
-    p4Action = runAI(state.players[3], dt);
+
+    // オンラインモードの場合の自分のプレイヤーインデックス検証
+    if (state.isOnlineMode && state.myPlayerIndex !== null && state.myPlayerIndex >= 0 && state.myPlayerIndex < state.players.length) {
+    // ============================================================
+    // オンラインモード: 自分のプレイヤーのみ操作
+    // ============================================================
+    
+    // ホストの場合：全プレイヤーを処理
+    if (state.isHost) {
+      for (let i = 0; i < state.players.length; i++) {
+        const player = state.players[i];
+        if (!player || player.isCPU) continue;
+        
+        if (player.alive) {
+          // 自分のプレイヤーはローカル入力
+          if (i === state.myPlayerIndex) {
+            const d = computeMoveDirectionFromKeys(p1map);
+            player._humanInput = { dx: d.dx, dy: d.dy };
+            
+            if (state.keys[state.keybinds.p1fire]) {
+              console.log(`[Host Fire] index=${i}, pos=(${player.x.toFixed(2)},${player.y.toFixed(2)})`);
+              state.keys[state.keybinds.p1fire] = false;
+              if (i === 0) fireAction = { player, action: 'fire' };
+              else if (i === 1) p2Action = { player, action: 'fire' };
+            }
+          }
+          // リモートプレイヤーはhandleRemoteInputで設定された_humanInputを使用（既に設定済み）
+          else {
+            // _humanInputは既にhandleRemoteInputで設定されている
+            // 発射キーもhandleRemoteInputで設定されている
+            if (i === 1 && state.keys[state.keybinds.p2fire]) {
+              console.log(`[Remote Fire] index=${i}, pos=(${player.x.toFixed(2)},${player.y.toFixed(2)})`);
+              state.keys[state.keybinds.p2fire] = false;
+              p2Action = { player, action: 'fire' };
+            }
+          }
+        } else {
+          player._humanInput = { dx: 0, dy: 0 };
+        }
+      }
+    }
+    // クライアントの場合：自分のプレイヤーのみ操作（予測移動用）
+    else {
+      const myPlayer = state.players[state.myPlayerIndex];
+      if (myPlayer && !myPlayer.isCPU) {
+        if (myPlayer.alive) {
+          // 矢印キーで自分のプレイヤーを操作
+          const d = computeMoveDirectionFromKeys(p1map);
+          myPlayer._humanInput = { dx: d.dx, dy: d.dy };
+          
+          if (state.keys[state.keybinds.p1fire]) {
+            console.log(`[Client Fire] index=${state.myPlayerIndex}, pos=(${myPlayer.x.toFixed(2)},${myPlayer.y.toFixed(2)})`);
+            state.keys[state.keybinds.p1fire] = false;
+            fireAction = { player: myPlayer, action: 'fire' };
+          }
+        } else {
+          myPlayer._humanInput = { dx: 0, dy: 0 };
+        }
+      }
+    }
+    
+    // CPU処理（ホストのみ）
+    if (state.isHost) {
+      for (let i = 0; i < state.players.length; i++) {
+        const player = state.players[i];
+        if (player && player.isCPU && player.alive) {
+          const cpuAction = runAI(player, dt);
+          if (cpuAction && cpuAction.action === 'fire') {
+            // CPUの発射処理
+            if (i === 0) fireAction = cpuAction;
+            else if (i === 1) p2Action = cpuAction;
+            else if (i === 2) p3Action = cpuAction;
+            else if (i === 3) p4Action = cpuAction;
+          }
+        }
+      }
+    }
+    
+  } else if (state.isOnlineMode && state.isSpectator) {
+    // ============================================================
+    // 観戦モード: 入力を受け付けない、表示のみ
+    // ============================================================
+    console.log('[updatePlayers] Spectator mode - no input, no AI execution');
+    
+    // 観戦者はAIを実行しない（ホストから同期されるのを待つ）
+    // すべてのプレイヤー動作はsync.jsでホストから受信
+    
+  } else {
+    // ============================================================
+    // オフラインモード: 従来の処理（P1=矢印、P2=WASD）
+    // ============================================================
+    
+    // P1の入力処理(人間プレイヤー - 連続移動)
+    const player1 = state.players[0];
+    if (player1 && !player1.isCPU) {
+      if (player1.alive) {
+        const d1 = computeMoveDirectionFromKeys(p1map);
+        player1._humanInput = { dx: d1.dx, dy: d1.dy };
+        if (state.keys && state.keys[state.keybinds.p1fire]) {
+          console.log(`[P1 Fire] input=(${d1.dx},${d1.dy}), pos=(${player1.x.toFixed(2)},${player1.y.toFixed(2)})`);
+          state.keys[state.keybinds.p1fire] = false;
+          fireAction = { player: player1, action: 'fire' };
+        }
+      } else {
+        // 死亡中は入力をクリア
+        player1._humanInput = { dx: 0, dy: 0 };
+      }
+    }
+
+    // P2の入力処理(CPUまたはキーボード)
+    const player2 = state.players[1];
+    if (state.players.length > 1 && player2) {
+      if (player2.isCPU) {
+        p2Action = runAI(player2, dt);
+      } else {
+        // P2が存在し、かつ生きている場合のみ処理
+        if (player2.alive) {
+          const d2 = computeMoveDirectionFromKeys(p2map);
+          player2._humanInput = { dx: d2.dx, dy: d2.dy };
+          if (state.keys && state.keys[state.keybinds.p2fire]) {
+            state.keys[state.keybinds.p2fire] = false;
+            p2Action = { player: player2, action: 'fire' };
+          }
+        } else {
+          // 死亡中は入力をクリア
+          player2._humanInput = { dx: 0, dy: 0 };
+        }
+      }
+    }
+
+    // P3とP4のAI処理(CPU専用)
+    const player3 = state.players[2];
+    const player4 = state.players[3];
+    if (state.players.length > 2 && player3 && player3.alive) {
+      p3Action = runAI(player3, dt);
+    }
+    if (state.players.length > 3 && player4 && player4.alive) {
+      p4Action = runAI(player4, dt);
+    }
   }
 
   // 全プレイヤーの移動処理とアイテム取得
@@ -252,6 +369,9 @@ export function updatePlayers(dt, runAI) {
         state.items.splice(i, 1);
       }
     }
+    
+    // パワーアップ収集判定
+    collectPowerup(p, Math.round(p.x), Math.round(p.y));
 
     // ボールとの衝突判定: 残り時間2秒以下のボールを踏むと爆発
     const now = performance.now() / 1000;
@@ -266,8 +386,8 @@ export function updatePlayers(dt, runAI) {
         const elapsed = now - ball.placedAt;
         const remaining = ball.fuse - elapsed;
         console.log(`[Ball Collision] P${p.id} stepped on ball! remaining=${remaining.toFixed(2)}s, fuse=${ball.fuse}, moving=${ball.moving}`);
-        if (remaining <= 2.0) {
-          // 残り時間2秒以下: 即座に爆発トリガー
+        if (remaining <= BALL_REMAINING_TIME_TRIGGER) {
+          // 残り時間以下: 即座に爆発トリガー
           console.log(`[Ball Trigger] Triggering explosion!`);
           ball.placedAt = now - ball.fuse; // 導火線を0にして即座に爆発させる
         }
@@ -282,4 +402,84 @@ export function updatePlayers(dt, runAI) {
   if (p3Action) actions.push(p3Action);
   if (p4Action) actions.push(p4Action);
   return actions.length > 0 ? actions : null;
+}
+
+/**
+ * プレイヤーにダメージを与える
+ * @param {Object} player - プレイヤーオブジェクト
+ */
+export function damagePlayer(player) {
+  if (!player.alive || player.invincibilityTime > 0) return;
+  
+  player.lives--;
+  if (player.lives > 0) {
+    // リスポーン
+    respawnPlayer(player);
+  } else {
+    // ゲームオーバー
+    player.alive = false;
+  }
+}
+
+/**
+ * プレイヤーをリスポーン
+ * @param {Object} player - プレイヤーオブジェクト
+ */
+export function respawnPlayer(player) {
+  player.x = player.spawnX;
+  player.y = player.spawnY;
+  player.invincibilityTime = RESPAWN_INVINCIBILITY_TIME;
+  player.moving = false;
+  player.pendingTarget = null;
+  player.moveProgress = 0;
+}
+
+/**
+ * プレイヤーの無敵時間を更新
+ * @param {number} dt - デルタタイム(秒)
+ */
+export function updatePlayerInvincibility(dt) {
+  state.players.forEach(p => {
+    if (p.invincibilityTime > 0) {
+      p.invincibilityTime -= dt;
+      if (p.invincibilityTime < 0) p.invincibilityTime = 0;
+    }
+  });
+}
+
+/**
+ * プレイヤーがパワーアップアイテムを取得
+ * @param {Object} player - プレイヤーオブジェクト
+ * @param {number} x - X座標
+ * @param {number} y - Y座標
+ */
+export function collectPowerup(player, x, y) {
+  // パワーアップアイテムの取得判定
+  for (let i = state.powerups.length - 1; i >= 0; i--) {
+    const powerup = state.powerups[i];
+    if (Math.round(player.x) === powerup.x && Math.round(player.y) === powerup.y) {
+      applyPowerup(player, powerup.type);
+      createPowerupParticles(powerup.x * TILE + TILE / 2, powerup.y * TILE + TILE / 2 + UI_TOP_HEIGHT, player.color);
+      state.powerups.splice(i, 1);
+    }
+  }
+}
+
+/**
+ * プレイヤーの速度を取得（パワーアップ効果込み）
+ * @param {Object} player - プレイヤーオブジェクト
+ * @returns {number} 速度
+ */
+export function getPlayerSpeed(player) {
+  let speed = player.speedTilesPerSec;
+  
+  // アイテム効果
+  speed += player.items.speed * 0.5;
+  
+  // パワーアップ効果
+  if (hasPowerup(player.id, POWERUP_TYPES.SPEED)) {
+    speed *= 1.5;
+  }
+  
+  return speed;
 }

@@ -377,13 +377,15 @@ export function dangerCellsFromBalls() {
  * 4. justFiredフラグ廃止 - 統一的な危険度評価で処理
  */
 export function runAI(p, dt) {
-  if (!p.alive) return null;
+  if (!p || !p.alive) return null;
+  if (!state || !state.players) return null;
 
   const now = performance.now() / 1000;
   const cx = Math.round(p.x);
   const cy = Math.round(p.y);
   
   // タイマー更新
+  if (!p._ai) p._ai = { timer: 0, dir: { x: 0, y: 0 }, gameStartTime: now };
   p._ai.timer -= dt;
   
   // 危険度マップを計算
@@ -563,7 +565,8 @@ export function runAI(p, dt) {
   // ゲーム開始1秒後から、安全な場所（危険度 < 100）で発射を検討
   
   if (timeSinceStart > 1.0 && currentDanger < 100) {
-    const target = state.players[0];
+    const target = state.players && state.players[0] ? state.players[0] : null;
+    if (!target) return null;
     const connected = arePlayersConnected(p, target);
     const blocksRemaining = countBlocks();
     
@@ -647,9 +650,9 @@ export function runAI(p, dt) {
   
   // === 探索移動（安全な場所で目的がない場合）===
   // アイテムが十分集まってからのみプレイヤーに接近
-  if (currentDanger < 100 && hasEnoughItems && state.items.length === 0) {
-    const target = state.players[0];
-    if (target.alive) {
+  if (currentDanger < 100 && hasEnoughItems && state.items && state.items.length === 0) {
+    const target = state.players && state.players[0] ? state.players[0] : null;
+    if (target && target.alive) {
       // プレイヤーに近づく方向を選ぶ
       let bestApproachMove = null;
       let bestApproachDist = Math.abs(target.x - cx) + Math.abs(target.y - cy);

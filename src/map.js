@@ -31,14 +31,22 @@ const MAP_PATTERNS = [
  * - プレイヤー初期位置はL字型3マス分を確保
  */
 export function initMap() {
-  // プレイヤー初期位置の定義
-  const p1Start = { x: 0, y: 0 };             // P1: 左上
-  const p2Start = { x: COLS - 1, y: ROWS - 1 }; // P2: 右下
-  const p3Start = { x: 0, y: ROWS - 1 };      // P3: 左下
-  const p4Start = { x: COLS - 1, y: 0 };      // P4: 右上
+  try {
+    // プレイヤー初期位置の定義
+    const p1Start = { x: 0, y: 0 };             // P1: 左上
+    const p2Start = { x: COLS - 1, y: ROWS - 1 }; // P2: 右下
+    const p3Start = { x: 0, y: ROWS - 1 };      // P3: 左下
+    const p4Start = { x: COLS - 1, y: 0 };      // P4: 右上
+    const p5Start = { x: 0, y: Math.floor(ROWS / 2) }; // P5: 左中央
+    const p6Start = { x: COLS - 1, y: Math.floor(ROWS / 2) }; // P6: 右中央
 
-  // 全マスを通行可能(0)で初期化
-  state.map = new Array(ROWS).fill(0).map(() => new Array(COLS).fill(0));
+    // 全マスを通行可能(0)で初期化
+    state.map = new Array(ROWS).fill(0).map(() => new Array(COLS).fill(0));
+    
+    // マップが正しく初期化されたか確認
+    if (!state.map || state.map.length !== ROWS || state.map[0].length !== COLS) {
+      throw new Error('Map initialization failed');
+    }
 
   // パターンを選択(現在は1つのみ)
   const pattern = MAP_PATTERNS[0];
@@ -82,4 +90,12 @@ export function initMap() {
   clearLShape(p2Start.x, p2Start.y, 'bottom-right');
   clearLShape(p3Start.x, p3Start.y, 'bottom-left');
   clearLShape(p4Start.x, p4Start.y, 'top-right');
+  clearLShape(p5Start.x, p5Start.y, 'top-left'); // P5: 左中央（右と下）
+  clearLShape(p6Start.x, p6Start.y, 'top-right'); // P6: 右中央（左と下）
+  
+  } catch (error) {
+    console.error('Map initialization error:', error);
+    // フォールバック: 空のマップを作成
+    state.map = new Array(ROWS).fill(0).map(() => new Array(COLS).fill(0));
+  }
 }

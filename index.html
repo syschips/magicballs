@@ -3,56 +3,173 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>MagicBall(Proto) (18×12)</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>MagicBall - PvP Battle Game</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div id="container">
-    <h1>MagicBall(Proto) (18×12)</h1>
-    <div id="controls">
-      <label><input type="checkbox" id="cpuToggle" checked> Player2 CPU</label>
-      <label><input type="checkbox" id="cpu3Toggle" checked> Player3 CPU</label>
-      <label><input type="checkbox" id="cpu4Toggle" checked> Player4 CPU</label>
-      <button id="resetBtn">リセット</button>
-      <span id="message"></span>
+    <h1>MagicBall - PvP Battle</h1>
+    
+    <!-- ログイン/登録UI -->
+    <div id="authUI" style="display:block;">
+      <div class="auth-panel">
+        <input type="text" id="usernameInput" placeholder="プレイヤー名" />
+        <input type="password" id="passwordInput" placeholder="パスワード" />
+        <button id="loginBtn" class="primary-btn">ログイン</button>
+        <button id="registerBtn">新規登録</button>
+        <button id="offlineBtn">オフラインで遊ぶ</button>
+      </div>
+    </div>
+    
+    <!-- キャラクター選択UI -->
+    <div id="charSelectUI" style="display:none;">
+      <button id="confirmCharBtn" class="primary-btn">決定</button>
+      <button id="backToAuthBtn">戻る</button>
+    </div>
+    
+    <!-- ルーム選択UI -->
+    <div id="roomSelectUI" style="display:none;">
+      <div class="room-panel">
+        <h2>ルーム一覧</h2>
+        <div id="roomList"></div>
+        <button id="createRoomBtn" class="primary-btn">新規ルーム作成</button>
+        <button id="backToCharBtn">戻る</button>
+      </div>
+      
+      <!-- ルーム作成モーダル -->
+      <div id="createRoomModal" style="display:none;">
+        <div class="modal-content">
+          <h3>新規ルーム作成</h3>
+          <input type="text" id="roomNameInput" placeholder="ルーム名" />
+          <select id="maxPlayersInput">
+            <option value="2">2人</option>
+            <option value="3">3人</option>
+            <option value="4" selected>4人</option>
+            <option value="5">5人</option>
+            <option value="6">6人</option>
+          </select>
+          <select id="gameTimeInput">
+            <option value="120">2分</option>
+            <option value="180" selected>3分</option>
+            <option value="300">5分</option>
+          </select>
+          <button id="confirmCreateRoomBtn" class="primary-btn">作成</button>
+          <button id="cancelCreateRoomBtn">キャンセル</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 待機ルームUI -->
+    <div id="waitingRoomUI" style="display:none;">
+      <div class="waiting-panel">
+        <div class="room-header">
+          <h2 id="roomNameDisplay">待機中</h2>
+          <button id="showControlsBtn" class="info-btn-small">❓ 操作方法</button>
+        </div>
+        <div id="participantList"></div>
+        <button id="readyBtn" class="primary-btn">準備完了</button>
+        <button id="leaveRoomBtn">ルームを退出</button>
+        
+        <!-- チャットエリア -->
+        <div id="chatArea">
+          <div id="chatMessages"></div>
+          <div id="chatInputContainer">
+            <input type="text" id="chatInput" placeholder="Enterでチャット入力..." maxlength="100" />
+            <button id="sendChatBtn">送信</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ランキングUI -->
+    <div id="rankingUI" style="display:none;">
+      <div class="ranking-panel">
+        <h2>ランキング</h2>
+        <button id="refreshRankingBtn">更新</button>
+        <button id="backFromRankingBtn">戻る</button>
+        <div id="rankingList"></div>
+      </div>
+    </div>
+    
+    <!-- ゲーム中のUI -->
+    <div id="gameUI" style="display:none;">
+      <div id="controls">
+        <button id="startBtn" class="primary-btn">ゲーム開始</button>
+        <label><input type="checkbox" id="cpuToggle" checked> Player2 CPU</label>
+        <label><input type="checkbox" id="cpu3Toggle"> Player3 CPU</label>
+        <label><input type="checkbox" id="cpu4Toggle"> Player4 CPU</label>
+        <button id="resetBtn">リスタート</button>
+        <button id="returnToRoomBtn" style="display:none;">ルームに戻る</button>
+        <button id="showRankingBtn">ランキング表示</button>
+      </div>
     </div>
 
-    <canvas id="game" width="864" height="576"></canvas>
+    <canvas id="game" width="864" height="776" style="display:none;"></canvas>
 
-    <div id="help">
+    <div id="help" style="display:none;">
       <h2>操作方法</h2>
       <p><strong>Player 1:</strong> 矢印キーで移動、<strong>スペース</strong> でボール発射</p>
       <p><strong>Player 2:</strong> <strong>W/A/S/D</strong> で移動、<strong>F</strong> でボール発射</p>
-      <p><strong>Player 3/4:</strong> CPU専用プレイヤー(チェックボックスで有効化)</p>
-      <p>斜め移動はできません。複数同時押し時の優先度は <strong>左 &gt; 右 &gt; 下 &gt; 上</strong> です。</p>
-      <p>マウスクリックで Player 1 の向きを変更できます（上下左右のどちらかに近い方向へ設定）。</p>
+      <p><strong>ESC:</strong> ポーズ / 再開</p>
       
       <h2>ゲーム内容</h2>
       <ul>
-        <li><strong>ボール：</strong>プレーヤーが発射する爆弾。移動し、壁やボックスに当たると停止します</li>
-        <li><strong>紺色の壁：</strong>ステージの外枠。壊せません</li>
-        <li><strong>茶色のボックス：</strong>破壊可能な障害物。爆発で壊すことができます</li>
-        <li><strong>黄色の予告範囲：</strong>ボール爆発前に爆発範囲を表示します（0.6秒間）</li>
-        <li><strong>オレンジの爆発：</strong>十字形に広がります。爆発範囲内のプレーヤーは死亡します</li>
+        <li><strong>ボール：</strong>プレーヤーが発射する爆弾。移動し、壁やボックスに当たると停止</li>
+        <li><strong>ライフシステム：</strong>爆発に巻き込まれるとライフが減り、リスポーン（初期ライフ: 3）</li>
+        <li><strong>スコアシステム：</strong>ブロック破壊、プレイヤー攻撃でスコアを獲得。コンボで倍率アップ</li>
+        <li><strong>対戦ゲーム：</strong>最後まで生き残ったプレイヤーの勝利</li>
       </ul>
 
-      <h2>アイテム</h2>
-      <p>ボックスを破壊するとたまにアイテムが出現します。プレーヤーが同じマスに移動すると取得できます。</p>
+      <h2>パワーアップ</h2>
+      <p>ブロックを破壊すると出現することがあります：</p>
       <ul>
-        <li><strong style="color:#ff6666;">● +B (赤い円)</strong>：同時に設置できるボール数 +1（デフォルト3個）</li>
-        <li><strong style="color:#66ff66;">▲ +R (緑の三角)</strong>：爆発範囲 +1タイル（デフォルト6タイル）</li>
-        <li><strong style="color:#6666ff;">► +S (青い矢印)</strong>：プレーヤー移動速度 +20%</li>
+        <li><strong>⚡ スピードアップ：</strong>移動速度1.5倍（8秒間）</li>
+        <li><strong>●● マルチボール：</strong>4方向にボールを同時発射（8秒間）</li>
+        <li><strong>⏸ 粘着性：</strong>ボールが動かずその場に設置（8秒間）</li>
+        <li><strong>🐌 スローモーション：</strong>時間の流れが半分に（8秒間）</li>
+        <li><strong>❤ ライフ追加：</strong>即座にライフ+1</li>
       </ul>
-      <p>画面上部に各プレーヤーのアイテム取得数が表示されます。例：<code>P1: B:2 R:1 S:0</code></p>
-    </div>
 
-    <div id="keybinds">
-      <label>P1 発射: <input id="p1fire" value="space" size="5"></label>
-      <label>P2 発射: <input id="p2fire" value="f" size="2"></label>
-      <button id="applyKeys">キー適用</button>
+      <h2>従来のアイテム</h2>
+      <ul>
+        <li><strong style="color:#ff6666;">● +B (赤い円)</strong>：同時に設置できるボール数 +1</li>
+        <li><strong style="color:#66ff66;">▲ +R (緑の三角)</strong>：爆発範囲 +1タイル</li>
+        <li><strong style="color:#6666ff;">► +S (青い矢印)</strong>：プレーヤー移動速度 +0.5</li>
+      </ul>
     </div>
   </div>
 
-<script type="module" src="src/main.js"></script>
+  <!-- 操作方法モーダル -->
+  <div id="controlsModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <span class="modal-close" id="closeControlsModal">&times;</span>
+      <h2>🎮 操作方法</h2>
+      <div class="controls-content">
+        <div class="control-item">
+          <strong>移動：</strong>矢印キー（↑↓←→）
+        </div>
+        <div class="control-item">
+          <strong>ボール発射：</strong>スペースキー
+        </div>
+        <div class="control-item">
+          <strong>ポーズ：</strong>ESC キー
+        </div>
+        <hr style="margin:16px 0; border:none; border-top:1px solid #ddd;">
+        <h3>ゲームルール</h3>
+        <ul style="text-align:left; padding-left:20px;">
+          <li>ボールを発射して壁やブロックで爆発させる</li>
+          <li>爆発に巻き込まれるとライフが減少</li>
+          <li>ブロックを破壊してパワーアップを獲得</li>
+          <li>最後まで生き残ったプレイヤーの勝利</li>
+        </ul>
+      </div>
+      <button id="closeControlsBtn" class="primary-btn">閉じる</button>
+    </div>
+  </div>
+
+<script type="module" src="src/main.js?v=20251214181529"></script>
 </body>
 </html>
