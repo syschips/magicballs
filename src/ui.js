@@ -794,8 +794,21 @@ function setupWebRTCConnectionHandler(webrtcManager, isHost, hostPlayerId) {
       if (isHost && window._magicball && window._magicball.handlePlayerDisconnected) {
         window._magicball.handlePlayerDisconnected(peerId);
       }
-      // 子の場合: ホストが切断したら昇格処理を試みる
+      // 子の場合: ホストが切断したら終了処理
       else if (!isHost && peerId === hostPlayerId) {
+        // peer接続をクリーンアップしてからホスト切断処理
+        if (webrtcManager && webrtcManager.peers.has(peerId)) {
+          try {
+            const pc = webrtcManager.peers.get(peerId);
+            if (pc && pc.connectionState !== 'closed') {
+              pc.close();
+            }
+            webrtcManager.peers.delete(peerId);
+            webrtcManager.dataChannels.delete(peerId);
+          } catch (error) {
+            console.warn('[WebRTC] Error cleaning up peer:', error);
+          }
+        }
         handleHostDisconnected();
       }
     }
@@ -1097,9 +1110,13 @@ async function handleHostDisconnected() {
   // ホストが切断された場合、ゲームを終了してルームに戻る
   showError('ホストが切断されました。ゲームを終了してルームに戻ります...');
   
-  // WebRTC接続をクローズ
+  // WebRTC接続を完全にクローズ
   if (webrtcManager) {
-    webrtcManager.close();
+    try {
+      webrtcManager.close();
+    } catch (error) {
+      console.warn('[handleHostDisconnected] Error closing WebRTC:', error);
+    }
     webrtcManager = null;
     window._magicballWebRTC = null;
   }

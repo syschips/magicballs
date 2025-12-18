@@ -53,7 +53,7 @@ function sendMoveInput() {
   
   // エッジ検出: 新しく押された場合のみログ
   if (firing && !lastFiringState) {
-    console.log('[Input] Fire key pressed!');
+    console.log('[Client Input] Fire key pressed! Key:', fireKey, 'PlayerIndex:', state.myPlayerIndex, 'Keys:', state.keys);
   }
   lastFiringState = firing;
   
@@ -63,12 +63,19 @@ function sendMoveInput() {
 
 /**
  * プレイヤーインデックスに応じたキーマッピングを取得
+ * オンラインモードでは全員が矢印キーを使用
  */
 function getKeyMapping(playerIndex) {
-  if (playerIndex === 0) {
-    return { left: 'a', right: 'd', down: 's', up: 'w' };
-  } else if (playerIndex === 1) {
+  // オンラインモードでは自分のプレイヤーは常に矢印キーで操作
+  if (state.isOnlineMode) {
     return { left: 'arrowleft', right: 'arrowright', down: 'arrowdown', up: 'arrowup' };
+  }
+  
+  // オフラインモード
+  if (playerIndex === 0) {
+    return { left: 'arrowleft', right: 'arrowright', down: 'arrowdown', up: 'arrowup' };
+  } else if (playerIndex === 1) {
+    return { left: 'a', right: 'd', down: 's', up: 'w' };
   }
   // 他のプレイヤーは後で実装
   return null;
@@ -76,8 +83,15 @@ function getKeyMapping(playerIndex) {
 
 /**
  * プレイヤーインデックスに応じた発射キーを取得
+ * オンラインモードでは全員がスペースキーを使用
  */
 function getFireKey(playerIndex) {
+  // オンラインモードでは自分のプレイヤーは常にスペースキーで発射
+  if (state.isOnlineMode) {
+    return ' ';
+  }
+  
+  // オフラインモード
   if (playerIndex === 0) return state.keybinds.p1fire || ' ';
   if (playerIndex === 1) return state.keybinds.p2fire || 'f';
   return ' ';

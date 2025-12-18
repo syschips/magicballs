@@ -196,6 +196,8 @@ export class WebRTCManager {
     
     dc.onclose = () => {
       console.log(`[WebRTC] DataChannel closed with ${peerId}`);
+      // DataChannelをクリーンアップ
+      this.dataChannels.delete(peerId);
     };
     
     dc.onerror = (error) => {
@@ -363,6 +365,18 @@ export class WebRTCManager {
    * @param {Object} message - 送信するメッセージオブジェクト
    */
   send(targetId, message) {
+    // peer接続が存在するか確認
+    if (!this.peers.has(targetId)) {
+      console.warn(`[WebRTC] No peer connection for ${targetId}`);
+      return;
+    }
+    
+    const pc = this.peers.get(targetId);
+    if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+      console.warn(`[WebRTC] Peer connection is ${pc.connectionState} for ${targetId}`);
+      return;
+    }
+    
     const dc = this.dataChannels.get(targetId);
     if (dc && dc.readyState === 'open') {
       try {
@@ -371,7 +385,7 @@ export class WebRTCManager {
         console.error(`[WebRTC] Failed to send message to ${targetId}:`, error);
       }
     } else {
-      console.warn(`[WebRTC] DataChannel not ready for ${targetId}`);
+      console.warn(`[WebRTC] DataChannel not ready for ${targetId}, state: ${dc ? dc.readyState : 'undefined'}`);
     }
   }
   
@@ -387,6 +401,12 @@ export class WebRTCManager {
     }
     
     for (const [targetId, dc] of this.dataChannels) {
+      // peer接続の状態も確認
+      const pc = this.peers.get(targetId);
+      if (!pc || pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+        continue; // 無効な接続はスキップ
+      }
+      
       if (dc.readyState === 'open') {
         try {
           dc.send(JSON.stringify(message));
@@ -439,17 +459,31 @@ export class WebRTCManager {
       this.signalingInterval = null;
     }
     
-    // DataChannelをクローズ
+    // DataChannelをクローズ（エラーハンドリング付き）
     for (const [peerId, dc] of this.dataChannels) {
-      dc.close();
+      try {
+        if (dc.readyState !== 'closed') {
+          dc.close();
+        }
+      } catch (error) {
+        console.warn(`[WebRTC] Error closing DataChannel for ${peerId}:`, error);
+      }
     }
     this.dataChannels.clear();
     
-    // PeerConnectionをクローズ
+    // PeerConnectionをクローズ（エラーハンドリング付き）
     for (const [peerId, pc] of this.peers) {
-      pc.close();
+      try {
+        if (pc.connectionState !== 'closed') {
+          pc.close();
+        }
+      } catch (error) {
+        console.warn(`[WebRTC] Error closing PeerConnection for ${peerId}:`, error);
+      }
     }
     this.peers.clear();
+    
+    console.log('[WebRTC] All connections closed successfully');
   }
 }
 

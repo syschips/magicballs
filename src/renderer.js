@@ -472,6 +472,7 @@ function renderInGameChat(ctx) {
   const startY = GAME_FIELD_H + UI_TOP_HEIGHT + 10; // 下部UI領域の開始位置
   ctx.font = '14px sans-serif';
   ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle'; // テキストのベースラインを中央に設定
   
   recentMessages.forEach((msg, index) => {
     const y = startY + (index * 24);
@@ -479,12 +480,11 @@ function renderInGameChat(ctx) {
     const isSystem = msg.is_system == 1;
     
     // 背景（22ピクセルの高さ）
-    const bgY = y - 16;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-    ctx.fillRect(10, bgY, CANVAS_W - 20, 22);
+    ctx.fillRect(10, y, CANVAS_W - 20, 22);
     
-    // テキスト（背景の中央に配置：bgY + 高さの半分 + フォントサイズの調整）
-    const textY = bgY + 11; // 背景の上端 + 11ピクセル（フォント14pxの中央配置）
+    // テキスト（背景の中央に配置）
+    const textY = y + 11; // 背景の中央（22pxの半分）
     if (isSystem) {
       ctx.fillStyle = '#90caf9';
       ctx.fillText(msg.message_text, 16, textY);
@@ -498,6 +498,7 @@ function renderInGameChat(ctx) {
   });
   
   ctx.textAlign = 'center'; // リセット
+  ctx.textBaseline = 'alphabetic'; // リセット
 }
 
 /**

@@ -31,6 +31,7 @@ export function createPlayer(id, x, y, color, ballType = 'kuro') {
     lives: DEFAULT_LIVES, // ライフ数
     score: 0,               // スコア
     invincibilityTime: 0,   // 無敵時間
+    ballsLeft: 3,           // 残りボール数（初期値3）
     ballType: ballType,     // ボールタイプ
     kuroStats: { 
       speed: ballStats.speed, 
@@ -284,6 +285,7 @@ export function updatePlayers(dt, runAI) {
           const d2 = computeMoveDirectionFromKeys(p2map);
           player2._humanInput = { dx: d2.dx, dy: d2.dy };
           if (state.keys && state.keys[state.keybinds.p2fire]) {
+            console.log(`[P2 Fire] pos=(${player2.x.toFixed(2)},${player2.y.toFixed(2)}), ballsLeft=${player2.ballsLeft}`);
             state.keys[state.keybinds.p2fire] = false;
             p2Action = { player: player2, action: 'fire' };
           }

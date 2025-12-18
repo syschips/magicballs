@@ -260,7 +260,10 @@ function handleRemoteInput(message) {
   const eventType = message.event;
   const data = message.data;
   
-  console.log('[Remote Input] Received:', { playerId, playerIndex, eventType, data });
+  // 移動イベントで発射フラグがあればログ出力
+  if (eventType === 'move' && data.firing) {
+    console.log('[Remote Input] Received FIRE:', { playerId, playerIndex, data });
+  }
   
   // プレイヤーを特定
   const player = state.players.find(p => p.realPlayerId === playerId);
@@ -287,11 +290,20 @@ function handleRemoteInput(message) {
     state.keys[fireKey] = isFiring;
     
     // 新しく押された場合（エッジ検出）
-    if (isFiring && !wasFiring && player.ballsLeft > 0 && !player.moving) {
-      console.log('[Remote Input] Placing ball for player:', playerIndex, 'at', player.x, player.y);
-      import('./ball.js').then(module => {
-        module.placeBall(player);
-      });
+    const canFire = isFiring && !wasFiring && player.ballsLeft > 0 && player.alive;
+    console.log('[Remote Fire Check]', {
+      playerIndex,
+      isFiring,
+      wasFiring,
+      ballsLeft: player.ballsLeft,
+      alive: player.alive,
+      canFire
+    });
+    
+    if (canFire) {
+      console.log(`[Remote Fire] P${playerIndex + 1} placed ball at (${player.x.toFixed(2)},${player.y.toFixed(2)}), ballsLeft: ${player.ballsLeft}`);
+      // 直接placeBallを呼び出す（既にインポート済み）
+      placeBall(player);
     }
     
     player._lastFiring = isFiring;
@@ -637,6 +649,13 @@ export function startGame(totalPlayers = 2, humanPlayerIds = [], hostPlayerId = 
   
   console.log('[startGame] Starting game with countdown:', { totalPlayers, humanPlayerIds, hostPlayerId, currentMode: state.gameMode });
   
+  // ゲーム開始時にコントロールUIを非表示（カウントダウン開始時）
+  const controlsDiv = document.getElementById('controls');
+  if (controlsDiv) {
+    controlsDiv.style.display = 'none';
+    console.log('[startGame] Controls UI hidden at countdown start');
+  }
+  
   // カウントダウン開始
   state.gameMode = 'countdown';
   state.countdown = 3;
@@ -690,13 +709,6 @@ function continueGameStart(totalPlayers, humanPlayerIds, hostPlayerId) {
     }
   }
   
-  // ゲーム開始時にコントロールUIを非表示
-  const controlsDiv = document.getElementById('controls');
-  if (controlsDiv) {
-    controlsDiv.style.display = 'none';
-    console.log('[startGame] Controls UI hidden');
-  }
-  
   console.log('[startGame] Game started:', { totalPlayers, humanPlayerIds, isHost: state.isHost });
 }
 
@@ -720,6 +732,7 @@ function handlePlayerDisconnected(playerId) {
     console.log('[handlePlayerDisconnected] Marking player as dead:', playerId);
     player.alive = false;
     player.ballsLeft = 0;
+    player.lives = 0;
     
     // チャットで通知（ホストのみ送信）
     if (typeof window !== 'undefined' && window._magicballChatManager) {
@@ -732,6 +745,7 @@ function handlePlayerDisconnected(playerId) {
         console.log('[handlePlayerDisconnected] Marking CPU as dead:', p.id);
         p.alive = false;
         p.ballsLeft = 0;
+        p.lives = 0;
       }
     });
     
