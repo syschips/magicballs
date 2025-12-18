@@ -339,13 +339,16 @@ function createSnapshot() {
       dir: p.dir // 向き情報も同期
     })),
     balls: state.balls.map(b => ({
-      x: b.x,
-      y: b.y,
-      vx: b.vx,
-      vy: b.vy,
-      remaining: b.remaining,
+      id: b.id,
+      fx: b.fx,
+      fy: b.fy,
+      dir: b.dir,
+      speed: b.speed,
       fuse: b.fuse,
-      moving: b.moving
+      owner: b.owner,
+      placedAt: b.placedAt,
+      moving: b.moving,
+      stopped: b.stopped
     })),
     explosions: state.explosions.map(e => ({
       x: e.x,
@@ -421,14 +424,16 @@ function applySnapshot(snapshot) {
   
   // ボール状態を更新
   state.balls = snapshot.balls.map(bSnapshot => ({
-    x: bSnapshot.x,
-    y: bSnapshot.y,
-    vx: bSnapshot.vx,
-    vy: bSnapshot.vy,
-    remaining: bSnapshot.remaining,
+    id: bSnapshot.id,
+    fx: bSnapshot.fx,
+    fy: bSnapshot.fy,
+    dir: bSnapshot.dir || { x: 0, y: 1 },
+    speed: bSnapshot.speed,
     fuse: bSnapshot.fuse,
+    owner: bSnapshot.owner,
+    placedAt: bSnapshot.placedAt,
     moving: bSnapshot.moving,
-    owner: null // オーナー情報は省略
+    stopped: bSnapshot.stopped
   }));
   
   // 爆発を更新

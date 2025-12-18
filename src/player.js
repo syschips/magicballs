@@ -2,7 +2,7 @@
  * プレイヤー関連の処理
  */
 
-import { COLS, ROWS, DEFAULT_LIVES, RESPAWN_INVINCIBILITY_TIME, POWERUP_TYPES, PLAYER_SPEED, BALL_TYPES, PLAYER_INDEX, BALL_REMAINING_TIME_TRIGGER, TILE, UI_TOP_HEIGHT } from './constants.js';
+import { COLS, ROWS, DEFAULT_LIVES, RESPAWN_INVINCIBILITY_TIME, POWERUP_TYPES, PLAYER_SPEED, BALL_TYPES, PLAYER_INDEX, BALL_COLLISION_EXPLODE_TIME, TILE, UI_TOP_HEIGHT } from './constants.js';
 import { state } from './state.js';
 import { inBounds, cellAt, ballExists, hasPowerup, applyPowerup, addScore } from './utils.js';
 import { createPowerupParticles } from './particle.js';
@@ -375,7 +375,7 @@ export function updatePlayers(dt, runAI) {
     // パワーアップ収集判定
     collectPowerup(p, Math.round(p.x), Math.round(p.y));
 
-    // ボールとの衝突判定: 残り時間2秒以下のボールを踏むと爆発
+    // ボールとの衝突判定: 残り時間3秒以下のボールを踏むと爆発
     const now = performance.now() / 1000;
     for (const ball of state.balls) {
       const ballCellX = Math.floor(ball.fx);
@@ -388,7 +388,8 @@ export function updatePlayers(dt, runAI) {
         const elapsed = now - ball.placedAt;
         const remaining = ball.fuse - elapsed;
         console.log(`[Ball Collision] P${p.id} stepped on ball! remaining=${remaining.toFixed(2)}s, fuse=${ball.fuse}, moving=${ball.moving}`);
-        if (remaining <= BALL_REMAINING_TIME_TRIGGER) {
+        // 配置から0.5秒以上経過し、かつ残り時間が3秒以下の場合のみ爆発
+        if (elapsed >= 0.5 && remaining <= BALL_COLLISION_EXPLODE_TIME) {
           // 残り時間以下: 即座に爆発トリガー
           console.log(`[Ball Trigger] Triggering explosion!`);
           ball.placedAt = now - ball.fuse; // 導火線を0にして即座に爆発させる

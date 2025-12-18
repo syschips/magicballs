@@ -275,13 +275,14 @@ export function updateBalls(dt) {
       state.balls.splice(i, 1);
       continue;
     }
+    
+    // 経過時間と残り時間を計算
+    const elapsed = now - k.placedAt;
+    const rem = Math.max(0, k.fuse - elapsed);
 
     // 停止中のボールは進行方向の障害物が消えていないかチェック
     if (k.stopped) {
-      const elapsed = now - k.placedAt;
-      const rem = Math.max(0, k.fuse - elapsed);
-      
-      // 残り時間が2秒以下になったら即座に爆発
+      // 残り時間が3秒以下になったら即座に爆発
       if (rem <= BALL_COLLISION_EXPLODE_TIME) {
         schedulePreviewAndExplosion(k);
         state.balls.splice(i, 1);
@@ -307,9 +308,7 @@ export function updateBalls(dt) {
 
       // 移動先が障害物かチェック
       if (!inBounds(nextX, nextY) || cellAt(nextX, nextY) === 1 || cellAt(nextX, nextY) === 2) {
-        const elapsed = now - k.placedAt;
-        const rem = Math.max(0, k.fuse - elapsed);
-        // 残り時間が2秒以下なら即座に爆発
+        // 残り時間が3秒以下なら即座に爆発
         if (rem <= BALL_COLLISION_EXPLODE_TIME) {
           schedulePreviewAndExplosion(k);
           state.balls.splice(i, 1);

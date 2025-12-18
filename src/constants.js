@@ -23,7 +23,7 @@ export const EXPLOSION_EFFECT_DURATION = 0.45; // 秒
 export const ITEM_DROP_CHANCE = 0.3; // 30%
 export const DEFAULT_MAX_BALLS = 3;
 export const DEFAULT_EXPLOSION_RANGE = 6;
-export const BALL_COLLISION_EXPLODE_TIME = 2.0; // 秒
+export const BALL_COLLISION_EXPLODE_TIME = 3.0; // ボールが爆発する残り時間の閾値（踏んだ時・壁激突時）
 
 // AI設定
 export const AI_NORMAL_INTERVAL_MIN = 0.4; // 秒
@@ -106,7 +106,6 @@ export const PLAYER_INDEX = {
 };
 
 // 数値定数
-export const BALL_REMAINING_TIME_TRIGGER = 2.0; // ボール踏んだ時の爆発トリガー時間
 export const CHAT_MESSAGE_DISPLAY_COUNT = 3; // チャット表示数
 export const CHAT_INPUT_MAX_LENGTH = 100; // チャット入力最大文字数
 

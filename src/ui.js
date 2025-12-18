@@ -1070,30 +1070,45 @@ async function handleReturnToRoom() {
   }
   
   showLoading('ルームに戻っています...');
+  
   try {
-    const result = await RoomAPI.resetRoom(playerSession.currentRoomId);
-    hideLoading();
+    // ホストの場合のみルームをリセット
+    const isHost = window._magicball && window._magicball.getState && 
+                   window._magicball.getState().isHost;
     
-    if (result.success) {
-      // WebRTC接続をクローズ
-      if (webrtcManager) {
-        webrtcManager.close();
-        webrtcManager = null;
-        window._magicballWebRTC = null;
-      }
+    if (isHost) {
+      console.log('[handleReturnToRoom] Host is resetting room');
+      const result = await RoomAPI.resetRoom(playerSession.currentRoomId);
+      hideLoading();
       
-      // ゲーム状態をリセット
-      if (typeof window._magicball !== 'undefined' && window._magicball.resetGame) {
-        window._magicball.resetGame();
+      if (!result.success) {
+        showError('ルームに戻れませんでした: ' + result.message);
+        return;
       }
-      
-      // 待機ルームに戻る
-      showWaitingRoomUI();
-      startWaitingRoomPolling();
-      showSuccess('ルームに戻りました');
     } else {
-      showError('ルームに戻れませんでした: ' + result.message);
+      // クライアントは少し待ってからルームに戻る（ホストのリセットを待つ）
+      console.log('[handleReturnToRoom] Client waiting for host to reset');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      hideLoading();
     }
+    
+    // WebRTC接続をクローズ
+    if (webrtcManager) {
+      webrtcManager.close();
+      webrtcManager = null;
+      window._magicballWebRTC = null;
+    }
+    
+    // ゲーム状態をリセット
+    if (typeof window._magicball !== 'undefined' && window._magicball.resetGame) {
+      window._magicball.resetGame();
+    }
+    
+    // 待機ルームに戻る
+    showWaitingRoomUI();
+    startWaitingRoomPolling();
+    showSuccess('ルームに戻りました');
+    
   } catch (error) {
     hideLoading();
     showError('エラー: ' + error.message);
