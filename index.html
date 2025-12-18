@@ -170,6 +170,18 @@
     </div>
   </div>
 
-<script type="module" src="src/main.js?v=20251214181529"></script>
+<script>
+// すべてのキャッシュをクリア
+if ('caches' in window) {
+  caches.keys().then(names => {
+    names.forEach(name => caches.delete(name));
+  });
+}
+</script>
+<script type="module">
+  // タイムスタンプでキャッシュバスティング
+  const v = new Date().getTime();
+  import(`./src/main.js?v=${v}`);
+</script>
 </body>
 </html>

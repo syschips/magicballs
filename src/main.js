@@ -388,14 +388,7 @@ function applySnapshot(snapshot) {
     return;
   }
   
-  console.log('[WebRTC Sync] Applying snapshot:', { 
-    tick: snapshot.tick, 
-    gameMode: snapshot.gameMode,
-    players: snapshot.players?.length,
-    balls: snapshot.balls?.length
-  });
-  
-  // Tick同期
+  // Tick同期（ログ削除 - 20Hz で大量に出力されるため）
   state.currentTick = snapshot.tick;
   state.gameTime = snapshot.gameTime;
   state.timeScale = snapshot.timeScale;

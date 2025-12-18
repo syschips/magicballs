@@ -4,7 +4,7 @@
 
 import { TILE, UI_TOP_HEIGHT } from './constants.js';
 import { state } from './state.js';
-import { chatInputMode, setChatInputMode, addChatInputChar, removeChatInputChar, getChatInputText } from './renderer.js';
+import { chatInputMode, setChatInputMode, addChatInputChar, removeChatInputChar, getChatInputText, setChatInputText } from './renderer.js';
 
 // 前回の発射キー状態を保持（エッジ検出用）
 let lastFiringState = false;
@@ -26,8 +26,6 @@ function sendInputEvent(type, data) {
     event: type,
     data: data
   });
-  
-  console.log('[Input] Sent to host:', type, data);
 }
 
 /**
@@ -50,11 +48,6 @@ function sendMoveInput() {
   // 発射キーの状態も送信
   const fireKey = getFireKey(state.myPlayerIndex);
   const firing = state.keys[fireKey] || false;
-  
-  // エッジ検出: 新しく押された場合のみログ
-  if (firing && !lastFiringState) {
-    console.log('[Client Input] Fire key pressed! Key:', fireKey, 'PlayerIndex:', state.myPlayerIndex, 'Keys:', state.keys);
-  }
   lastFiringState = firing;
   
   // ホストに送信
@@ -104,12 +97,28 @@ function getFireKey(playerIndex) {
  * - チャット入力モード時は操作を無効化
  */
 export function setupKeyboardInput() {
+  console.log('[Input] Setting up keyboard input');
+  
   window.addEventListener('keydown', e => {
     if (!e || !e.key) return;
     const k = e.key.toLowerCase();
     
+    // デバッグ: Enterキーの状態をログ
+    if (k === 'enter') {
+      console.log('[Input] Enter key detected:', {
+        gameMode: state?.gameMode,
+        chatInputMode,
+        isComposing: e.isComposing
+      });
+    }
+    
     // ゲーム中のEnterキー: チャット入力モード切り替え
     if (state && state.gameMode === 'playing' && k === 'enter') {
+      // IME入力中のEnterは無視（変換確定用）
+      if (e.isComposing) {
+        return;
+      }
+      
       e.preventDefault();
       
       if (chatInputMode) {
@@ -143,14 +152,12 @@ export function setupKeyboardInput() {
     
     // チャット入力モード時の文字入力
     if (chatInputMode) {
-      e.preventDefault();
-      
+      // Backspace: input要素で自動処理されるが、念のため
       if (k === 'backspace') {
         removeChatInputChar();
-      } else if (k.length === 1 || (e.key.length === 1 && !e.ctrlKey && !e.altKey)) {
-        // 通常の文字入力
-        addChatInputChar(e.key);
-      }
+        e.preventDefault();
+      } 
+      // その他のキーはinput要素が自動処理（IME含む）
       return;
     }
     

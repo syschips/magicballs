@@ -5,7 +5,7 @@
 import { 
   COLS, ROWS, TILE, CANVAS_W, CANVAS_H, UI_TOP_HEIGHT, GAME_FIELD_H,
   POWERUP_TYPES, INVINCIBILITY_BLINK_INTERVAL, BALL_TYPES, 
-  CHAT_MESSAGE_DISPLAY_COUNT, RENDER_CONSTANTS 
+  CHAT_MESSAGE_DISPLAY_COUNT, CHAT_INPUT_MAX_LENGTH, RENDER_CONSTANTS 
 } from './constants.js';
 import { state } from './state.js';
 import { inBounds, hasPowerup } from './utils.js';
@@ -14,6 +14,29 @@ import { renderParticles } from './particle.js';
 // チャット入力モード管理
 export let chatInputMode = false;
 export let chatInputText = '';
+let chatInputElement = null;
+
+/**
+ * 非表示input要素を作成（IME対応）
+ */
+function createChatInput() {
+  if (!chatInputElement) {
+    chatInputElement = document.createElement('input');
+    chatInputElement.type = 'text';
+    chatInputElement.style.position = 'fixed';
+    chatInputElement.style.left = '-9999px';
+    chatInputElement.style.opacity = '0';
+    chatInputElement.maxLength = CHAT_INPUT_MAX_LENGTH;
+    document.body.appendChild(chatInputElement);
+    
+    // input要素の値が変更されたらchatInputTextに反映
+    chatInputElement.addEventListener('input', (e) => {
+      chatInputText = e.target.value;
+      console.log('[Chat] Input changed:', chatInputText);
+    });
+  }
+  return chatInputElement;
+}
 
 /**
  * ゲームフィールド座標をCanvas座標に変換するヘルパー
@@ -27,25 +50,48 @@ function toCanvasY(gameY) {
  */
 export function setChatInputMode(enabled) {
   chatInputMode = enabled;
-  if (!enabled) {
+  const input = createChatInput();
+  
+  if (enabled) {
+    input.value = '';
     chatInputText = '';
+    input.focus();
+    console.log('[Chat] Input mode enabled, focused on input element');
+  } else {
+    input.value = '';
+    chatInputText = '';
+    input.blur();
   }
 }
 
 /**
- * チャット入力テキスト追加
+ * チャット入力テキスト追加（input要素経由）
  */
 export function addChatInputChar(char) {
-  if (chatInputText.length < CHAT_INPUT_MAX_LENGTH) {
-    chatInputText += char;
+  const input = createChatInput();
+  if (input.value.length < CHAT_INPUT_MAX_LENGTH) {
+    input.value += char;
+    chatInputText = input.value;
   }
 }
 
 /**
- * チャット入力テキスト削除
+ * チャット入力テキスト削除（input要素経由）
  */
 export function removeChatInputChar() {
-  chatInputText = chatInputText.slice(0, -1);
+  const input = createChatInput();
+  input.value = input.value.slice(0, -1);
+  chatInputText = input.value;
+}
+
+/**
+ * チャット入力テキストを直接設定（IME対応）
+ */
+export function setChatInputText(text) {
+  const input = createChatInput();
+  const limitedText = text.length <= CHAT_INPUT_MAX_LENGTH ? text : text.substring(0, CHAT_INPUT_MAX_LENGTH);
+  input.value = limitedText;
+  chatInputText = limitedText;
 }
 
 /**
