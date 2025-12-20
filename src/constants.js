@@ -36,8 +36,33 @@ export const AI_ITEMS_THRESHOLD = 2; // アイテム確保判定の閾値
 export const AI_BREAK_BLOCK_CHANCE = 0.6; // 60% (探索モード時のブロック破壊確率)
 export const AI_IDLE_FIRE_TIMEOUT = 3.0; // 3秒 (AIがボールを発射していない場合のタイムアウト)
 
+// ゲームモード設定
+export const GAME_MODES = {
+  CLASSIC: {
+    id: 'classic',
+    name: 'クラシックモード',
+    lives: 1,           // 残基1
+    maxBalls: 1,        // 同時設置可能なボール数: 1個
+    explosionRange: 1,  // 火力1
+    allowedItems: ['extraBalls', 'range', 'speed'], // 許可されたアイテム
+    rateChange: true    // レート変化あり
+  },
+  PARTY: {
+    id: 'party',
+    name: 'パーティモード',
+    lives: 3,           // 残基3
+    maxBalls: 3,        // 同時設置可能なボール数: 3個
+    explosionRange: 6,  // 火力6
+    allowedItems: null, // 全アイテム許可（nullは全て）
+    rateChange: false   // レート変化なし
+  }
+};
+
+// デフォルトモード
+export const DEFAULT_GAME_MODE = 'classic';
+
 // ライフシステム設定
-export const DEFAULT_LIVES = 3; // デフォルトのライフ数
+export const DEFAULT_LIVES = 3; // デフォルトのライフ数（パーティモード用）
 export const RESPAWN_INVINCIBILITY_TIME = 2.0; // リスポーン後の無敵時間(秒)
 export const INVINCIBILITY_BLINK_INTERVAL = 0.15; // 無敵時の点滅間隔(秒)
 
@@ -49,28 +74,28 @@ export const BALL_TYPES = {
   kuro: {
     name: 'クロ',
     color: '#222222',
-    playerSpeed: 4.5,  // プレイヤー移動速度
-    speed: 1.0,        // 標準速度
-    interval: 0.6,     // 発射間隔（秒）
-    fuse: 2.0,         // 導火線時間（秒）
+    playerSpeed: 3,    // プレイヤー移動速度
+    speed: 1,          // 速度: -3～4の範囲、1が基準
+    interval: 0.2,     // 発射間隔（秒）
+    fuse: 5,           // 導火線時間（秒）
     description: 'バランス型'
   },
   shiro: {
     name: 'シロ',
     color: '#ffffff',
-    playerSpeed: 5.5,  // プレイヤー移動速度（速い）
-    speed: 1.5,        // 速い
-    interval: 0.8,     // 長い間隔
-    fuse: 1.5,         // 短い導火線
+    playerSpeed: 3,    // プレイヤー移動速度
+    speed: -1,         // 速度: -3～4の範囲、-3で完全停止
+    interval: 0.1,     // 発射間隔（秒）
+    fuse: 4,           // 導火線時間（秒）
     description: '速攻型'
   },
   kiiro: {
     name: 'キイロ',
     color: '#ffdd00',
-    playerSpeed: 3.5,  // プレイヤー移動速度（遅い）
-    speed: 0.5,        // 遅い
-    interval: 0.4,     // 短い間隔
-    fuse: 2.5,         // 長い導火線
+    playerSpeed: 3,    // プレイヤー移動速度
+    speed: 2,          // 速度: -3～4の範囲、高速
+    interval: 0.1,     // 発射間隔（秒）
+    fuse: 5,           // 導火線時間（秒）
     description: '連射型'
   }
 };

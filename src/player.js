@@ -2,7 +2,7 @@
  * プレイヤー関連の処理
  */
 
-import { COLS, ROWS, DEFAULT_LIVES, RESPAWN_INVINCIBILITY_TIME, POWERUP_TYPES, PLAYER_SPEED, BALL_TYPES, PLAYER_INDEX, BALL_COLLISION_EXPLODE_TIME, TILE, UI_TOP_HEIGHT } from './constants.js';
+import { COLS, ROWS, DEFAULT_LIVES, RESPAWN_INVINCIBILITY_TIME, POWERUP_TYPES, PLAYER_SPEED, BALL_TYPES, PLAYER_INDEX, BALL_COLLISION_EXPLODE_TIME, TILE, UI_TOP_HEIGHT, GAME_MODES, DEFAULT_GAME_MODE } from './constants.js';
 import { state } from './state.js';
 import { inBounds, cellAt, ballExists, hasPowerup, applyPowerup, addScore } from './utils.js';
 import { createPowerupParticles } from './particle.js';
@@ -16,8 +16,22 @@ import { createPowerupParticles } from './particle.js';
  * @param {string} ballType - ボールタイプ ('kuro', 'shiro', 'kiiro')
  * @returns プレイヤーオブジェクト
  */
-export function createPlayer(id, x, y, color, ballType = 'kuro') {
+export function createPlayer(id, x, y, color, ballType = 'kuro', gameMode = null) {
   const ballStats = BALL_TYPES[ballType] || BALL_TYPES.kuro;
+  
+  // ゲームモードの設定を取得
+  const modeId = gameMode || state.currentGameMode || DEFAULT_GAME_MODE;
+  const modeConfig = GAME_MODES[modeId.toUpperCase()] || GAME_MODES.CLASSIC;
+  
+  console.log('[createPlayer]', { 
+    id, 
+    ballType, 
+    gameMode: modeId, 
+    maxBalls: modeConfig.maxBalls, 
+    lives: modeConfig.lives,
+    explosionRange: modeConfig.explosionRange,
+    ballSpeed: ballStats.speed
+  });
   
   return {
     id, x, y, color,
@@ -28,12 +42,12 @@ export function createPlayer(id, x, y, color, ballType = 'kuro') {
     dir: { x: 0, y: 1 },    // 向いている方向(ボール発射方向)
     speedTilesPerSec: ballStats.playerSpeed || PLAYER_SPEED,    // 移動速度（ボールタイプに応じて変化）
     alive: true,            // 生存状態
-    lives: DEFAULT_LIVES, // ライフ数
+    lives: modeConfig.lives, // ライフ数（ゲームモードに応じて変化）
     score: 0,               // スコア
     invincibilityTime: 0,   // 無敵時間
-    ballsLeft: 3,           // 残りボール数（初期値3）
+    maxBalls: modeConfig.maxBalls, // 同時設置可能な基本ボール数（ゲームモードに応じて変化）
     ballType: ballType,     // ボールタイプ
-    kuroStats: { 
+    ballStats: { 
       speed: ballStats.speed, 
       interval: ballStats.interval, 
       stage: ballStats.fuse 
@@ -42,7 +56,11 @@ export function createPlayer(id, x, y, color, ballType = 'kuro') {
     isCPU: false,           // CPU制御フラグ
     _ai: { timer: 0, dir: { x: 0, y: 0 }, gameStartTime: performance.now() / 1000 }, // AI用内部状態
     _humanInput: { dx: 0, dy: 0 }, // 人間プレイヤー用入力状態
-    items: { maxBalls: 0, range: 0, speed: 0 } // 取得したアイテム数
+    items: { 
+      extraBalls: 0, // アイテムで追加されたボール数（初期値は0）
+      range: modeConfig.explosionRange - 1, // 初期火力を反映
+      speed: 0 
+    } // 取得したアイテム数
   };
 }
 
@@ -285,7 +303,7 @@ export function updatePlayers(dt, runAI) {
           const d2 = computeMoveDirectionFromKeys(p2map);
           player2._humanInput = { dx: d2.dx, dy: d2.dy };
           if (state.keys && state.keys[state.keybinds.p2fire]) {
-            console.log(`[P2 Fire] pos=(${player2.x.toFixed(2)},${player2.y.toFixed(2)}), ballsLeft=${player2.ballsLeft}`);
+            console.log(`[P2 Fire] pos=(${player2.x.toFixed(2)},${player2.y.toFixed(2)}), maxBalls=${player2.maxBalls}`);
             state.keys[state.keybinds.p2fire] = false;
             p2Action = { player: player2, action: 'fire' };
           }

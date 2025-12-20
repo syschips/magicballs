@@ -9,7 +9,7 @@
  * @param int player_id ホストプレイヤーID
  * @param string|null room_name ルーム名（省略時は"Room XXXXXXXX"）
  * @param int|null max_players 最大プレイヤー数（デフォルト: 6）
- * @param int|null game_time ゲーム時間（秒、デフォルト: 180）
+ * @param string|null game_mode ゲームモード（classic/party、デフォルト: classic）
  * 
  * @return object
  *   @property bool success 成功フラグ
@@ -58,18 +58,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $room_name = !empty($data->room_name) ? $data->room_name : "Room " . substr($room_id, 0, 8);
             $max_players = !empty($data->max_players) ? (int)$data->max_players : 6;
             
-            // ゲーム時間を取得（デフォルト180秒）
-            $game_time = !empty($data->game_time) ? (int)$data->game_time : 180;
+            // ゲームモードを取得（デフォルトはclassic）
+            $game_mode = !empty($data->game_mode) ? $data->game_mode : 'classic';
+            if (!in_array($game_mode, ['classic', 'party'])) {
+                $game_mode = 'classic';
+            }
             
             // ルーム作成（作成者をホストとして設定）
-            $query = "INSERT INTO game_rooms (room_id, room_name, max_players, current_players, host_player_id, game_time, status) 
-                      VALUES (:room_id, :room_name, :max_players, 1, :host_player_id, :game_time, 'waiting')";
+            $query = "INSERT INTO game_rooms (room_id, room_name, max_players, current_players, host_player_id, game_mode, status) 
+                      VALUES (:room_id, :room_name, :max_players, 1, :host_player_id, :game_mode, 'waiting')";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':room_id', $room_id);
             $stmt->bindParam(':room_name', $room_name);
             $stmt->bindParam(':max_players', $max_players);
             $stmt->bindParam(':host_player_id', $data->player_id);
-            $stmt->bindParam(':game_time', $game_time);
+            $stmt->bindParam(':game_mode', $game_mode);
             
             if ($stmt->execute()) {
                 // 作成者を参加者として追加
@@ -87,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $logger->logRoom('create', $room_id, $data->player_id, [
                     'room_name' => $room_name,
                     'max_players' => $max_players,
-                    'game_time' => $game_time
+                    'game_mode' => $game_mode
                 ]);
                 
                 http_response_code(201);
@@ -99,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         "room_name" => $room_name,
                         "max_players" => $max_players,
                         "current_players" => 1,
+                        "game_mode" => $game_mode,
                         "status" => "waiting"
                     ]
                 ]);

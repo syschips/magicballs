@@ -101,10 +101,18 @@ try {
     
     // 全員準備完了なら、ルームのステータスを'playing'に変更
     if ($all_ready) {
+        // ルームをplayingにし、全員のis_readyをリセット
         $stmt = $db->prepare("
             UPDATE game_rooms 
             SET status = 'playing', started_at = NOW()
             WHERE room_id = :room_id AND status = 'waiting'
+        ");
+        $stmt->bindParam(':room_id', $room_id);
+        $stmt->execute();
+
+        // 参加者全員のis_readyをリセット
+        $stmt = $db->prepare("
+            UPDATE room_participants SET is_ready = 0 WHERE room_id = :room_id
         ");
         $stmt->bindParam(':room_id', $room_id);
         $stmt->execute();

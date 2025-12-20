@@ -24,7 +24,7 @@ import { damagePlayer } from './player.js';
  * ボールの発射: プレイヤーの現在位置にボールを配置し、向いている方向へ移動開始
  * 制限事項:
  * - 発射間隔(interval)のクールダウン中は発射不可
- * - 同時配置数の上限(デフォルト3個 + maxBallsアイテム効果)を超えたら発射不可
+ * - 同時配置数の上限(デフォルト1個 + extraBallsアイテム効果)を超えたら発射不可
  * - 死亡中は発射不可
  */
 export function placeBall(player) {
@@ -32,10 +32,17 @@ export function placeBall(player) {
 
   const now = performance.now() / 1000;
   // 発射間隔チェック: 前回発射からの経過時間が足りなければ発射できない
-  if (now - player.lastFire < player.kuroStats.interval) return;
+  if (now - player.lastFire < player.ballStats.interval) return;
 
-  // 同時配置数の上限チェック(アイテム効果を加算)
-  const maxBallsLimit = 3 + player.items.maxBalls;
+  // 同時配置数の上限チェック（maxBalls[基本数] + items.extraBalls[アイテムで追加された数]）
+  const maxBallsLimit = player.maxBalls + player.items.extraBalls;
+  console.log('[placeBall] Max balls check:', {
+    playerId: player.id,
+    maxBalls: player.maxBalls,
+    extraBalls: player.items.extraBalls,
+    maxBallsLimit: maxBallsLimit,
+    currentBalls: state.balls.filter(b => b.owner === player.id).length
+  });
   if (state.balls.filter(b => b.owner === player.id).length >= maxBallsLimit) return;
 
   // ボールの移動方向を決定(プレイヤーの向きを使用、向きが未設定なら下方向)
@@ -49,12 +56,28 @@ export function placeBall(player) {
   // 粘着性パワーアップの確認
   const hasSticky = hasPowerup(player.id, POWERUP_TYPES.STICKY);
   
+  // ボールの速度を計算（speed値を実際の移動速度に変換）
+  // speed: -3～4の範囲
+  // speed=1を基準(1.0タイル/秒)とし、変換式: actualSpeed = 0.25 * (speed + 3)
+  // speed=-3 -> 0.0 (完全停止), speed=1 -> 1.0 (基準), speed=4 -> 1.75 (高速)
+  const speedValue = Math.max(-3, Math.min(4, player.ballStats.speed));
+  const actualSpeed = 0.25 * (speedValue + 3); // -3を0.0、-1を0.5、1を1.0、2を1.25、4を1.75
+  
+  console.log('[placeBall] Ball stats:', { 
+    playerId: player.id, 
+    ballType: player.ballType,
+    speedValue, 
+    actualSpeed, 
+    interval: player.ballStats.interval,
+    fuse: player.ballStats.stage
+  });
+  
   const ball = {
     id: Math.random().toString(36).slice(2, 10),
     fx: cellX + 0.5, fy: cellY + 0.5, // マスの中心に配置
     dir: { x: dx, y: dy },
-    speed: hasSticky ? 0 : Math.max(0, Math.min(2, player.kuroStats.speed)),
-    fuse: Math.max(2, Math.min(5, player.kuroStats.stage)),
+    speed: hasSticky ? 0 : actualSpeed,
+    fuse: Math.max(2, Math.min(5, player.ballStats.stage)),
     owner: player.id,
     placedAt: now,
     moving: !hasSticky, 
@@ -77,8 +100,8 @@ export function placeBall(player) {
           id: Math.random().toString(36).slice(2, 10),
           fx: cellX + 0.5, fy: cellY + 0.5,
           dir: { x: dir.x, y: dir.y },
-          speed: hasSticky ? 0 : Math.max(0, Math.min(2, player.kuroStats.speed)),
-          fuse: Math.max(2, Math.min(5, player.kuroStats.stage)),
+          speed: hasSticky ? 0 : actualSpeed, // 同じactualSpeedを使用
+          fuse: Math.max(2, Math.min(5, player.ballStats.stage)),
           owner: player.id,
           placedAt: now,
           moving: !hasSticky,
@@ -209,7 +232,7 @@ export function triggerExplosionCell(x, y, canChain = false, ownerId = null) {
     
     // 30%の確率でアイテムをドロップ
     if (Math.random() < ITEM_DROP_CHANCE) {
-      const itemTypes = ['maxBalls', 'range', 'speed'];
+      const itemTypes = ['extraBalls', 'range', 'speed'];
       const type = itemTypes[Math.floor(Math.random() * itemTypes.length)];
       state.items.push({ x, y, type });
     }

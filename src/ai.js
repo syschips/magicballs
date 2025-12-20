@@ -63,7 +63,7 @@ function arePlayersConnected(p1, p2) {
  * @returns {boolean} - 十分なアイテムを確保しているか
  */
 function hasEnoughItems(p) {
-  const totalItems = p.items.range + p.items.maxBalls + p.items.speed;
+  const totalItems = p.items.range + p.items.extraBalls + p.items.speed;
   return totalItems >= AI_ITEMS_THRESHOLD;
 }
 

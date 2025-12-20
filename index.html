@@ -44,17 +44,16 @@
         <div class="modal-content">
           <h3>新規ルーム作成</h3>
           <input type="text" id="roomNameInput" placeholder="ルーム名" />
+          <select id="gameModeInput">
+            <option value="classic" selected>クラシックモード（レート変動あり）</option>
+            <option value="party">パーティモード（レート変動なし）</option>
+          </select>
           <select id="maxPlayersInput">
             <option value="2">2人</option>
             <option value="3">3人</option>
             <option value="4" selected>4人</option>
             <option value="5">5人</option>
             <option value="6">6人</option>
-          </select>
-          <select id="gameTimeInput">
-            <option value="120">2分</option>
-            <option value="180" selected>3分</option>
-            <option value="300">5分</option>
           </select>
           <button id="confirmCreateRoomBtn" class="primary-btn">作成</button>
           <button id="cancelCreateRoomBtn">キャンセル</button>

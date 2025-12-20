@@ -3,7 +3,7 @@
  */
 
 import { COLS, ROWS, POWERUP_TYPES, POWERUP_DURATION, POWERUP_DROP_CHANCE, 
-         SCORE_BLOCK_DESTROY, SCORE_PLAYER_HIT, COMBO_TIMEOUT, COMBO_MULTIPLIER_BASE } from './constants.js';
+         SCORE_BLOCK_DESTROY, SCORE_PLAYER_HIT, COMBO_TIMEOUT, COMBO_MULTIPLIER_BASE, GAME_MODES } from './constants.js';
 import { state } from './state.js';
 
 /**
@@ -73,7 +73,21 @@ export function beep(freq, time = 0.06) {
 export function spawnPowerup(x, y) {
   if (Math.random() > POWERUP_DROP_CHANCE) return null;
   
-  const types = Object.values(POWERUP_TYPES);
+  // ゲームモードに応じてドロップするアイテムを制限
+  const modeId = state.currentGameMode || 'classic';
+  const modeConfig = GAME_MODES[modeId.toUpperCase()] || GAME_MODES.CLASSIC;
+  
+  let types = Object.values(POWERUP_TYPES);
+  
+  // クラシックモードの場合、特定のアイテムのみ
+  if (modeConfig.allowedItems && Array.isArray(modeConfig.allowedItems)) {
+    // allowedItemsは['extraBalls', 'range', 'speed']のような配列
+    // これらはPOWERUP_TYPESではなく、従来のアイテムを示す
+    // ただし、現在の実装ではspawnPowerupはパワーアップを生成するので
+    // クラシックモードではパワーアップをドロップしない
+    return null; // クラシックモードではパワーアップなし
+  }
+  
   const type = types[Math.floor(Math.random() * types.length)];
   
   return {

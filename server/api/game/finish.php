@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->beginTransaction();
             
             // ルーム情報を取得
-            $room_query = "SELECT room_id, current_players FROM game_rooms WHERE room_id = :room_id LIMIT 1";
+            $room_query = "SELECT room_id, current_players, game_mode FROM game_rooms WHERE room_id = :room_id LIMIT 1";
             $room_stmt = $db->prepare($room_query);
             $room_stmt->bindParam(':room_id', $data->room_id);
             $room_stmt->execute();
@@ -127,6 +127,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$room) {
                 throw new Exception("ルームが見つかりません");
             }
+            
+            // ゲームモードを取得
+            $game_mode = $room['game_mode'] ?? 'classic';
+            $is_party_mode = ($game_mode === 'party');
             
             // 勝者を特定
             $winner_id = null;
@@ -169,8 +173,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $rate_before = $current_rate;
                 $rate_change = 0;
                 
-                // レート変動計算（勝者のみ）
-                if ($result_type === 'win' && $winner_id) {
+                // パーティモードの場合、レート変動なし
+                if ($is_party_mode) {
+                    $rate_change = 0;
+                } elseif ($result_type === 'win' && $winner_id) {
+                    // レート変動計算（勝者のみ、クラシックモードのみ）
                     // 敗者の平均レートを計算
                     $losers_rates = [];
                     foreach ($data->results as $other) {

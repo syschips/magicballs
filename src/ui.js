@@ -48,6 +48,7 @@ export function initUI() {
   // セッション復元を試みる
   if (playerSession.restore()) {
     // セッションがある場合はキャラクター選択画面へ
+    state.isOnlineMode = true;
     showCharSelectUI();
   } else {
     // セッションがない場合はログイン画面へ
@@ -56,6 +57,14 @@ export function initUI() {
   
   // グローバルに公開（main.jsから参照するため）
   window._magicballSession = playerSession;
+  
+  // DOM要素の存在確認（デバッグ用）
+  console.log('[initUI] Checking required DOM elements:', {
+    roomNameInput: !!document.getElementById('roomNameInput'),
+    maxPlayersInput: !!document.getElementById('maxPlayersInput'),
+    gameModeInput: !!document.getElementById('gameModeInput'),
+    createRoomModal: !!document.getElementById('createRoomModal')
+  });
   
   // 認証ボタン
   document.getElementById('loginBtn').onclick = handleLogin;
@@ -237,6 +246,7 @@ async function handleLogin() {
     
     if (result.success) {
       showSuccess(`ログイン成功！レート: ${playerSession.rate}`);
+      state.isOnlineMode = true;
       showCharSelectUI();
     } else {
       showError('ログイン失敗: ' + result.message);
@@ -271,6 +281,7 @@ async function handleRegister() {
     
     if (result.success) {
       showSuccess('登録成功！');
+      state.isOnlineMode = true;
       showCharSelectUI();
     } else {
       showError('登録失敗: ' + result.message);
@@ -285,18 +296,25 @@ async function handleRegister() {
  * オフラインプレイ
  */
 function handleOfflinePlay() {
-  // オフラインモード用にゲームを初期化してすぐに開始
+  // オフラインモード用にキャラクター選択画面を表示
   state.isOnlineMode = false; // オフラインモードを明示
-  if (typeof window._magicballStartGame === 'function') {
-    window._magicballStartGame(2, [1]); // 2人プレイ、プレイヤー1のみ人間
-  }
-  showGameUI();
+  showCharSelectUI();
 }
 
 /**
  * キャラ選択確定
  */
 function handleCharConfirm() {
+  // オフラインモードの場合は直接ゲームを開始
+  if (state.isOnlineMode === false) {
+    // オフラインモードではクラシックモードを使用
+    state.currentGameMode = 'classic';
+    console.log('[handleCharConfirm] Offline mode: set game mode to classic');
+    window._magicballStartGame(2, [1]);
+    return;
+  }
+  
+  // オンラインモードの場合はルーム選択画面へ
   showRoomSelectUI();
   loadRoomList();
   startRoomListPolling(); // 定期更新を開始
@@ -306,13 +324,29 @@ function handleCharConfirm() {
  * ルーム作成
  */
 async function handleCreateRoom() {
-  const roomName = document.getElementById('roomNameInput').value.trim() || `${playerSession.playerName}の部屋`;
-  const maxPlayers = parseInt(document.getElementById('maxPlayersInput').value);
-  const gameTime = parseInt(document.getElementById('gameTimeInput').value);
+  const roomNameInput = document.getElementById('roomNameInput');
+  const maxPlayersInput = document.getElementById('maxPlayersInput');
+  const gameModeInput = document.getElementById('gameModeInput');
+  
+  if (!roomNameInput || !maxPlayersInput || !gameModeInput) {
+    console.error('[handleCreateRoom] Required input elements not found:', {
+      roomNameInput: !!roomNameInput,
+      maxPlayersInput: !!maxPlayersInput,
+      gameModeInput: !!gameModeInput
+    });
+    showError('ルーム作成フォームの読み込みに失敗しました');
+    return;
+  }
+  
+  const roomName = roomNameInput.value.trim() || `${playerSession.playerName}の部屋`;
+  const maxPlayers = parseInt(maxPlayersInput.value);
+  const gameMode = gameModeInput.value;
+  
+  console.log('[handleCreateRoom] Creating room:', { roomName, maxPlayers, gameMode });
   
   showLoading('ルーム作成中...');
   try {
-    const result = await playerSession.createRoom(roomName, maxPlayers, gameTime);
+    const result = await playerSession.createRoom(roomName, maxPlayers, gameMode);
     hideLoading();
     
     if (result.success) {
@@ -355,10 +389,12 @@ async function loadRoomList() {
       validRooms.forEach(room => {
         const roomDiv = document.createElement('div');
         roomDiv.className = 'room-item';
+        const modeLabel = room.game_mode === 'party' ? 'パーティ' : 'クラシック';
         roomDiv.innerHTML = `
           <h3>${room.room_name}</h3>
+          <p>モード: ${modeLabel}</p>
           <p>プレイヤー: ${room.current_players}/${room.max_players}</p>
-          <p>ゲーム時間: ${room.game_time}秒</p>
+
           <button class="join-room-btn" data-room-id="${room.room_id}">参加</button>
         `;
         roomList.appendChild(roomDiv);
@@ -652,9 +688,11 @@ async function fetchRoomState() {
  * @param {number} hostPlayerId - ホストのプレイヤーID
  * @private
  */
-function renderParticipantList(participants, hostPlayerId) {
+function renderParticipantList(participants, hostPlayerId, gameMode) {
   const participantList = document.getElementById('participantList');
-  let html = '<ul>';
+  const modeLabel = gameMode === 'party' ? 'パーティモード' : 'クラシックモード';
+  let html = `<p style="margin-bottom: 10px; color: #666;">ゲームモード: <strong>${modeLabel}</strong></p>`;
+  html += '<ul>';
   participants.forEach(p => {
     const readyStatus = p.is_ready ? '✓ 準備完了' : '待機中';
     const hostBadge = (parseInt(p.player_id) === hostPlayerId) ? ' [ホスト]' : '';
@@ -687,12 +725,24 @@ function updateReadyButton(isHost, participants, hostPlayerId, currentPlayerId) 
     readyBtn.disabled = !allOthersReady;
     
     console.log('[Host] Other players ready:', allOthersReady, 'Non-host players:', nonHostHumanPlayers);
+    // ホストのみゲーム開始処理
+    readyBtn.onclick = async () => {
+      const response = await fetch(`${API_BASE_URL}/game/state.php?room_id=${playerSession.currentRoomId}`);
+      const data = await response.json();
+      await handleHostReady(data, currentPlayerId);
+    };
   } else {
     const myParticipant = participants.find(p => parseInt(p.player_id) === currentPlayerId);
     const isReady = myParticipant ? myParticipant.is_ready : false;
     readyBtn.textContent = isReady ? '準備解除' : '準備完了';
     readyBtn.disabled = false;
     readyBtn.className = isReady ? 'danger-btn' : 'primary-btn';
+    // 非ホストは準備トグルのみ
+    readyBtn.onclick = async () => {
+      const response = await fetch(`${API_BASE_URL}/game/state.php?room_id=${playerSession.currentRoomId}`);
+      const data = await response.json();
+      await handleParticipantReady(data, currentPlayerId);
+    };
   }
 }
 
@@ -706,16 +756,30 @@ function checkAndStartGame(room, participants) {
   if (room.status === 'playing' && state.gameMode !== 'playing') {
     stopWaitingRoomPolling();
     
+    // ゲームモードを設定
+    if (room.game_mode) {
+      state.currentGameMode = room.game_mode;
+      console.log('[checkAndStartGame] Set game mode:', state.currentGameMode);
+    }
+    
     const sortedParticipants = participants
       .filter(p => !p.is_cpu)
       .sort((a, b) => a.position - b.position);
     
     const maxPlayers = room.max_players || 4;
-    const humanPlayerIds = sortedParticipants.map(p => parseInt(p.player_id));
+    // player_idとball_typeを保存
+    const playerInfo = sortedParticipants.map(p => ({
+      playerId: parseInt(p.player_id),
+      ballType: p.ball_type || 'kuro'
+    }));
     
-    while (humanPlayerIds.length < maxPlayers) {
-      humanPlayerIds.push(null);
-    }
+    // 不足分をnullで埋める
+    // nullで埋めず、実プレイヤーのみ渡す
+    // while (playerInfo.length < maxPlayers) {
+    //   playerInfo.push(null);
+    // }
+    // null除去
+    const filteredPlayerInfo = playerInfo.filter(info => info && info.playerId != null);
     
     const totalPlayers = maxPlayers;
     const hostPlayerId = room.host_player_id;
@@ -723,15 +787,16 @@ function checkAndStartGame(room, participants) {
     
     console.log('[checkAndStartGame] Starting game:', { 
       totalPlayers, 
-      humanPlayerIds, 
+      playerInfo, 
       humanCount: sortedParticipants.length,
       cpuCount: totalPlayers - sortedParticipants.length,
       hostPlayerId, 
       isHost,
-      participants: sortedParticipants.map(p => ({ id: p.player_id, pos: p.position }))
+      gameMode: state.currentGameMode,
+      participants: sortedParticipants.map(p => ({ id: p.player_id, pos: p.position, ballType: p.ball_type }))
     });
     
-    initWebRTCAndStartGame(totalPlayers, humanPlayerIds, hostPlayerId, isHost);
+    initWebRTCAndStartGame(totalPlayers, filteredPlayerInfo, hostPlayerId, isHost);
     showGameUI();
   }
 }
@@ -753,10 +818,11 @@ async function updateParticipantList() {
       const hostPlayerId = data.room ? parseInt(data.room.host_player_id) : null;
       const currentPlayerId = parseInt(playerSession.playerId);
       const isHost = hostPlayerId === currentPlayerId;
+      const gameMode = data.room ? (data.room.game_mode || 'classic') : 'classic';
       
-      console.log(`[Host Check] hostPlayerId=${hostPlayerId}, currentPlayerId=${currentPlayerId}, isHost=${isHost}`);
+      console.log(`[Host Check] hostPlayerId=${hostPlayerId}, currentPlayerId=${currentPlayerId}, isHost=${isHost}, gameMode=${gameMode}`);
       
-      renderParticipantList(data.participants, hostPlayerId);
+      renderParticipantList(data.participants, hostPlayerId, gameMode);
       updateReadyButton(isHost, data.participants, hostPlayerId, currentPlayerId);
       
       if (data.room) {
@@ -796,7 +862,11 @@ function setupWebRTCConnectionHandler(webrtcManager, isHost, hostPlayerId) {
       }
       // 子の場合: ホストが切断したら終了処理
       else if (!isHost && peerId === hostPlayerId) {
-        // peer接続をクリーンアップしてからホスト切断処理
+        // ゲームが終了状態（clear/gameover）かどうか判定
+        const state = window._magicballState;
+        const isGameEnded = state && (state.gameMode === 'clear' || state.gameMode === 'gameover');
+
+        // peer接続をクリーンアップ
         if (webrtcManager && webrtcManager.peers.has(peerId)) {
           try {
             const pc = webrtcManager.peers.get(peerId);
@@ -809,6 +879,7 @@ function setupWebRTCConnectionHandler(webrtcManager, isHost, hostPlayerId) {
             console.warn('[WebRTC] Error cleaning up peer:', error);
           }
         }
+        // ゲーム終了時も必ずhandleHostDisconnectedを呼ぶ
         handleHostDisconnected();
       }
     }
@@ -843,12 +914,12 @@ function setupWebRTCMessageHandler(webrtcManager, isHost) {
  * 最大接続試行回数までDataChannelの開通を確認
  * @param {WebRTCManager} webrtcManager - WebRTCマネージャーインスタンス
  * @param {boolean} isHost - このクライアントがホストかどうか
- * @param {number[]} humanPlayerIds - 人間プレイヤーのID配列
+ * @param {Array<{playerId:number,ballType:string}>} playerInfo - プレイヤー情報配列
  * @param {number} hostPlayerId - ホストのプレイヤーID
  * @returns {Promise<void>}
  * @private
  */
-async function waitForWebRTCConnection(webrtcManager, isHost, humanPlayerIds, hostPlayerId) {
+async function waitForWebRTCConnection(webrtcManager, isHost, playerInfo, hostPlayerId) {
   return new Promise((resolve) => {
     let attempts = 0;
     const maxAttempts = WEBRTC_CONFIG.MAX_CONNECTION_ATTEMPTS;
@@ -858,10 +929,10 @@ async function waitForWebRTCConnection(webrtcManager, isHost, humanPlayerIds, ho
       
       // ホスト: 全参加者との接続を確認
       if (isHost) {
-        const allConnected = humanPlayerIds
-          .filter(id => id !== null && id !== playerSession.playerId)
-          .every(id => {
-            const dc = webrtcManager.dataChannels.get(id);
+        const allConnected = playerInfo
+          .filter(info => info.playerId !== null && info.playerId !== playerSession.playerId)
+          .every(info => {
+            const dc = webrtcManager.dataChannels.get(info.playerId);
             return dc && dc.readyState === 'open';
           });
         
@@ -890,13 +961,13 @@ async function waitForWebRTCConnection(webrtcManager, isHost, humanPlayerIds, ho
  * WebRTC接続を確立してゲームを開始
  * ホストは全参加者と接続、参加者はホストと接続
  * @param {number} totalPlayers - 総プレイヤー数（CPU含む）
- * @param {number[]} humanPlayerIds - 人間プレイヤーのID配列（nullはCPU）
+ * @param {Array<{playerId: number, ballType: string}>} playerInfo - プレイヤー情報配列（nullはCPU）
  * @param {number} hostPlayerId - ホストのプレイヤーID
  * @param {boolean} isHost - このクライアントがホストかどうか
  * @returns {Promise<void>}
  * @private
  */
-async function initWebRTCAndStartGame(totalPlayers, humanPlayerIds, hostPlayerId, isHost) {
+async function initWebRTCAndStartGame(totalPlayers, playerInfo, hostPlayerId, isHost) {
   try {
     console.log('[WebRTC] Initializing connection...', { 
       roomId: playerSession.currentRoomId, 
@@ -917,7 +988,9 @@ async function initWebRTCAndStartGame(totalPlayers, humanPlayerIds, hostPlayerId
     
     // 接続の確立
     if (isHost) {
-      const participantIds = humanPlayerIds.filter(id => id !== null && id !== playerSession.playerId);
+      const participantIds = playerInfo
+        .map(info => info.playerId)
+        .filter(id => id !== null && id !== playerSession.playerId);
       console.log('[WebRTC] Host connecting to participants:', participantIds);
       await webrtcManager.connectAsHost(participantIds);
     } else {
@@ -929,16 +1002,16 @@ async function initWebRTCAndStartGame(totalPlayers, humanPlayerIds, hostPlayerId
     window._magicballWebRTC = webrtcManager;
     
     // DataChannelの確立を待つ
-    await waitForWebRTCConnection(webrtcManager, isHost, humanPlayerIds, hostPlayerId);
+    await waitForWebRTCConnection(webrtcManager, isHost, playerInfo, hostPlayerId);
     
     // ゲーム開始
-    console.log('[WebRTC] Starting game with humanPlayerIds:', humanPlayerIds);
-    window._magicballStartGame(totalPlayers, humanPlayerIds, hostPlayerId);
+    console.log('[WebRTC] Starting game with playerInfo:', playerInfo);
+    window._magicballStartGame(totalPlayers, playerInfo, hostPlayerId);
     
   } catch (error) {
     console.error('[WebRTC] Initialization failed:', error);
     // エラーでもゲームは開始する（フォールバック）
-    window._magicballStartGame(totalPlayers, humanPlayerIds, hostPlayerId);
+    window._magicballStartGame(totalPlayers, playerInfo, hostPlayerId);
   }
 }
 
@@ -1086,6 +1159,22 @@ async function handleReturnToRoom() {
         return;
       }
     } else {
+      // 非ホストも自分の準備完了状態を明示的に解除
+      console.log('[handleReturnToRoom] Client resetting ready state');
+      try {
+        await fetch(`${API_BASE_URL}/rooms/ready.php`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            room_id: playerSession.currentRoomId,
+            player_id: playerSession.playerId,
+            is_ready: false
+          })
+        });
+      } catch (error) {
+        console.warn('[handleReturnToRoom] Failed to reset ready state:', error);
+      }
+      
       // クライアントは少し待ってからルームに戻る（ホストのリセットを待つ）
       console.log('[handleReturnToRoom] Client waiting for host to reset');
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -1094,6 +1183,7 @@ async function handleReturnToRoom() {
     
     // WebRTC接続をクローズ
     if (webrtcManager) {
+      console.log('[handleReturnToRoom] Closing WebRTC connection');
       webrtcManager.close();
       webrtcManager = null;
       window._magicballWebRTC = null;
@@ -1107,6 +1197,10 @@ async function handleReturnToRoom() {
     // 待機ルームに戻る
     showWaitingRoomUI();
     startWaitingRoomPolling();
+    
+    // すぐに参加者リストを更新して準備完了状態をリセット
+    await updateParticipantList();
+    
     showSuccess('ルームに戻りました');
     
   } catch (error) {
@@ -1125,6 +1219,21 @@ async function handleHostDisconnected() {
   // ホストが切断された場合、ゲームを終了してルームに戻る
   showError('ホストが切断されました。ゲームを終了してルームに戻ります...');
   
+  // 準備完了状態を確実にリセット
+  try {
+    await fetch(`${API_BASE_URL}/rooms/ready.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        room_id: playerSession.currentRoomId,
+        player_id: playerSession.playerId,
+        is_ready: false
+      })
+    });
+  } catch (error) {
+    console.warn('[handleHostDisconnected] Failed to reset ready state:', error);
+  }
+  
   // WebRTC接続を完全にクローズ
   if (webrtcManager) {
     try {
@@ -1136,13 +1245,21 @@ async function handleHostDisconnected() {
     window._magicballWebRTC = null;
   }
   
-  // ゲームを終了してルームに戻る
+  // ゲームを終了
   if (window._magicball && window._magicball.endGameAndReturnToRoom) {
     window._magicball.endGameAndReturnToRoom();
   }
   
-  setTimeout(() => {
-    handleReturnToRoom();
+  // 2秒後にルームに戻る（UI更新のため）
+  setTimeout(async () => {
+    // 待機ルームに戻る
+    showWaitingRoomUI();
+    startWaitingRoomPolling();
+    
+    // すぐに参加者リストを更新して準備完了状態をリセット
+    await updateParticipantList();
+    
+    showSuccess('ルームに戻りました');
   }, 2000);
 }
 

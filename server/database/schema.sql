@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS game_rooms (
     current_players INT DEFAULT 0,
     host_player_id INT NOT NULL,
     game_time INT DEFAULT 180,
+    game_mode ENUM('classic', 'party') DEFAULT 'classic',
     status ENUM('waiting', 'playing', 'finished') DEFAULT 'waiting',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     started_at TIMESTAMP NULL,

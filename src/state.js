@@ -44,6 +44,7 @@ export const state = {
   // オンライン対戦用
   selectedBallType: 'kuro', // 選択中のボールタイプ
   currentRoomId: null,      // 現在参加中のルームID
+  currentGameMode: 'classic', // 現在のゲームモード ('classic' or 'party')
   myPlayerId: null,         // 自分のplayer_id（オンライン対戦時）
   myPlayerIndex: null,      // state.players配列内の自分のインデックス
   isOnlineMode: false,      // オンラインモードかどうか
@@ -75,7 +76,7 @@ export function resetState() {
   state.uiAnimations = [];
   state.timeScale = 1.0;
   state.myPlayerIndex = null;
-  state.isOnlineMode = false;
+  // state.isOnlineMode はリセットしない
   state.isSpectator = false;
   state.isHost = false;
   state.currentTick = 0;
@@ -83,4 +84,9 @@ export function resetState() {
   state.inputBuffer = new Map();
   state.lastProcessedTick = new Map();
   state.snapshotHistory = [];
+}
+
+// グローバルに公開（ui.jsのWebRTC切断判定で使用）
+if (typeof window !== 'undefined') {
+  window._magicballState = state;
 }

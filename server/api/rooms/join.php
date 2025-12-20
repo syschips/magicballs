@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->beginTransaction();
             
             // ルームの存在と状態を確認（ロック取得）
-            $room_query = "SELECT room_id, max_players, current_players, status 
+            $room_query = "SELECT room_id, max_players, current_players, status, game_mode 
                            FROM game_rooms WHERE room_id = :room_id LIMIT 1 FOR UPDATE";
             $room_stmt = $db->prepare($room_query);
             $room_stmt->bindParam(':room_id', $data->room_id);

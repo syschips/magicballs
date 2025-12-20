@@ -129,6 +129,7 @@ try {
             'current_players' => $room['current_players'],
             'max_players' => $room['max_players'],
             'game_time' => $room['game_time'],
+            'game_mode' => $room['game_mode'] ?? 'classic',
             'host_player_id' => $room['host_player_id']
         ],
         'participants' => $participants,

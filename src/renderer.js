@@ -150,7 +150,7 @@ function drawMapItem(ctx, item) {
   
   ctx.save();
   
-  if (item.type === 'maxBalls') {
+  if (item.type === 'extraBalls') {
     ctx.fillStyle = '#ff9999';
     ctx.beginPath();
     ctx.arc(centerX, centerY, TILE * 0.2, 0, Math.PI * 2);
@@ -264,8 +264,8 @@ function drawPlayerInfoPanel(ctx, player, index) {
   
   // アイテム
   ctx.font = '11px sans-serif';
-  const items = player.items || { maxBalls: 0, range: 0, speed: 0 };
-  ctx.fillText(`B:${items.maxBalls} R:${items.range} S:${items.speed}`, x + 8, y + 52);
+  const items = player.items || { extraBalls: 0, range: 0, speed: 0 };
+  ctx.fillText(`B:${items.extraBalls} R:${items.range} S:${items.speed}`, x + 8, y + 52);
   
   // アクティブなパワーアップ（アイコンのみ）
   const playerPowerups = (state.activePowerups || []).filter(pu => pu && pu.playerId === player.id);
@@ -759,9 +759,9 @@ function renderCharSelectScreen(ctx) {
     ctx.font = '14px monospace';
     ctx.fillStyle = '#ccc';
     ctx.textAlign = 'left';
-    ctx.fillText(`速度: ${(stats.speed * 100).toFixed(0)}%`, cardX + 15, cardY + 195);
-    ctx.fillText(`間隔: ${(stats.interval * 100).toFixed(0)}%`, cardX + 15, cardY + 215);
-    ctx.fillText(`導火線: ${(stats.fuse * 100).toFixed(0)}%`, cardX + 15, cardY + 235);
+    ctx.fillText(`速度: ${stats.speed}`, cardX + 15, cardY + 195);
+    ctx.fillText(`発射間隔: ${stats.interval}秒`, cardX + 15, cardY + 215);
+    ctx.fillText(`導火線: ${stats.fuse}秒`, cardX + 15, cardY + 235);
     ctx.textAlign = 'center';
   });
   

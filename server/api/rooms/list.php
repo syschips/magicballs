@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $database = new Database();
         $db = $database->getConnection();
         
-        $query = "SELECT room_id, room_name, max_players, current_players, status, game_time, created_at 
+        $query = "SELECT room_id, room_name, max_players, current_players, status, game_time, game_mode, created_at 
                   FROM game_rooms 
                   WHERE status = 'waiting' 
                   ORDER BY created_at DESC 
@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 "current_players" => (int)$row['current_players'],
                 "status" => $row['status'],
                 "game_time" => (int)$row['game_time'],
+                "game_mode" => $row['game_mode'],
                 "created_at" => $row['created_at']
             ];
         }

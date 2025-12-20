@@ -28,9 +28,9 @@ const ctx = canvas.getContext('2d');
  * - プレイヤーを初期位置に配置
  * - CPU設定をUIから取得
  * @param {number} totalPlayers - 総プレイヤー数（オンライン対戦時に指定）
- * @param {Array} humanPlayerIds - 人間プレイヤーのID配列
+ * @param {Array} playerInfo - プレイヤー情報配列 [{playerId, ballType}, ...] または [playerId, ...]
  */
-function resetGame(totalPlayers = 2, humanPlayerIds = [1]) {
+function resetGame(totalPlayers = 2, playerInfo = [1]) {
   initMap();
   resetState();
   
@@ -47,10 +47,22 @@ function resetGame(totalPlayers = 2, humanPlayerIds = [1]) {
   state.players = [];
   
   // オフラインモードの場合（UIから設定を取得）
-  if (totalPlayers === 2 && humanPlayerIds.length === 1) {
+  // playerInfoが数値の配列または長さ1の場合はオフライン
+  const isOffline = totalPlayers === 2 && (
+    (Array.isArray(playerInfo) && playerInfo.length === 1 && typeof playerInfo[0] === 'number') ||
+    (Array.isArray(playerInfo) && playerInfo.length === 1 && playerInfo[0] === 1)
+  );
+  
+  if (isOffline) {
+    // 選択されたボールタイプとゲームモードを取得
+    const ballType = state.selectedBallType || 'kuro';
+    const gameMode = state.currentGameMode || 'classic';
+    
+    console.log('[resetGame] Offline mode:', { ballType, gameMode });
+    
     state.players = [
-      createPlayer(1, 0, 0, '#ff6b6b'),              // P1: 左上
-      createPlayer(2, COLS - 1, ROWS - 1, '#4da6ff') // P2: 右下
+      createPlayer(1, 0, 0, '#ff6b6b', ballType, gameMode),              // P1: 左上
+      createPlayer(2, COLS - 1, ROWS - 1, '#4da6ff', ballType, gameMode) // P2: 右下
     ];
     
     const cpuToggle = document.getElementById('cpuToggle');
@@ -61,68 +73,80 @@ function resetGame(totalPlayers = 2, humanPlayerIds = [1]) {
     // P3とP4を追加(チェックボックスがONの場合)
     const cpu3Toggle = document.getElementById('cpu3Toggle');
     if (cpu3Toggle && cpu3Toggle.checked) {
-      const p3 = createPlayer(3, 0, ROWS - 1, '#66ff66'); // P3: 左下(緑)
+      const p3 = createPlayer(3, 0, ROWS - 1, '#66ff66', ballType, gameMode); // P3: 左下(緑)
       p3.isCPU = true;
       state.players.push(p3);
     }
     
     const cpu4Toggle = document.getElementById('cpu4Toggle');
     if (cpu4Toggle && cpu4Toggle.checked) {
-      const p4 = createPlayer(4, COLS - 1, 0, '#ffff66'); // P4: 右上(黄)
+      const p4 = createPlayer(4, COLS - 1, 0, '#ffff66', ballType, gameMode); // P4: 右上(黄)
       p4.isCPU = true;
       state.players.push(p4);
     }
   } else {
     // オンラインモードの場合（指定された人数分プレイヤーを作成）
-    console.log('[resetGame] Online mode:', { totalPlayers, humanPlayerIds });
+    console.log('[resetGame] Online mode:', { totalPlayers, playerInfo });
     state.isOnlineMode = true;
+    
+    // 自分の選択したballTypeとゲームモードを取得
+    let myBallType = 'kuro';
+    if (typeof window !== 'undefined' && window.playerSession && window.playerSession.ballType) {
+      myBallType = window.playerSession.ballType;
+      console.log('[resetGame] Using ballType:', myBallType);
+    }
+    
+    const gameMode = state.currentGameMode || 'classic';
+    console.log('[resetGame] Using game mode:', gameMode);
     
     for (let i = 0; i < totalPlayers; i++) {
       const playerId = i + 1;
       const pos = spawnPositions[i] || spawnPositions[0]; // フォールバック
-      const player = createPlayer(playerId, pos.x, pos.y, pos.color);
       
-      // humanPlayerIdsの中で対応するDBのplayer_idを取得（nullならCPU）
-      const realPlayerId = humanPlayerIds[i];
+      // playerInfoから情報を取得
+      const info = playerInfo[i];
+      const realPlayerId = info ? info.playerId : null;
+      const ballType = info ? info.ballType : 'kuro';
+      
+      console.log(`[resetGame] Creating player ${playerId}:`, { realPlayerId, ballType, gameMode });
+      
+      const player = createPlayer(playerId, pos.x, pos.y, pos.color, ballType, gameMode);
       
       // 人間プレイヤーかCPUかを判定
       if (realPlayerId !== null && realPlayerId !== undefined) {
         player.realPlayerId = realPlayerId; // DBのplayer_idを保存
         player.isCPU = false;
-        console.log(`[resetGame] Created player ${playerId}:`, { realPlayerId, isCPU: false, pos });
+        console.log(`[resetGame] Created human player ${playerId}:`, { realPlayerId, isCPU: false, pos, ballType });
       } else {
         // CPU補充
         player.isCPU = true;
         player.realPlayerId = null;
-        console.log(`[resetGame] Created CPU player ${playerId}:`, { pos });
+        console.log(`[resetGame] Created CPU player ${playerId}:`, { pos, ballType });
       }
       
       state.players.push(player);
     }
-    const humanCount = humanPlayerIds.filter(id => id !== null && id !== undefined).length;
+    const humanCount = playerInfo.filter(info => info !== null && info !== undefined).length;
     console.log('[resetGame] Total players created:', state.players.length, { humans: humanCount, cpus: totalPlayers - humanCount });
     
     // 自分のプレイヤーインデックスを特定（playerSessionからmyPlayerIdを取得）
     if (typeof window !== 'undefined' && window.playerSession && window.playerSession.playerId) {
       state.myPlayerId = window.playerSession.playerId;
       
-      // 重要: humanPlayerIdsはDBのplayer_idの配列 [5, 6, 7, ...]
-      // state.players[i].idはゲーム内のID（1, 2, 3, ...）
-      // 正しいマッピング: humanPlayerIdsの中での位置 = state.playersのインデックス
-      const indexInHumanPlayers = humanPlayerIds.indexOf(state.myPlayerId);
-      
-      if (indexInHumanPlayers >= 0 && indexInHumanPlayers < state.players.length) {
-        state.myPlayerIndex = indexInHumanPlayers;
+      // playerInfoの中で自分のplayerIdが何番目かを探す
+      const indexInPlayerInfo = playerInfo.findIndex(info => info && info.playerId === state.myPlayerId);
+      if (indexInPlayerInfo >= 0 && indexInPlayerInfo < state.players.length) {
+        state.myPlayerIndex = indexInPlayerInfo;
         state.isSpectator = false;
         console.log(`[resetGame] My player: playerId=${state.myPlayerId}, index=${state.myPlayerIndex}`);
-      } else if (indexInHumanPlayers < 0) {
-        // humanPlayerIdsに含まれていない = 観戦者
+      } else if (indexInPlayerInfo < 0) {
+        // playerInfoに含まれていない = 観戦者
         state.myPlayerIndex = null;
         state.isSpectator = true;
         console.log(`[resetGame] Spectator mode: playerId=${state.myPlayerId}`);
       } else {
         // インデックスが範囲外（エラー）
-        console.error(`[resetGame] Index out of range: indexInHumanPlayers=${indexInHumanPlayers}, players.length=${state.players.length}`);
+        console.error(`[resetGame] Index out of range: indexInPlayerInfo=${indexInPlayerInfo}, players.length=${state.players.length}`);
         state.myPlayerIndex = null;
         state.isSpectator = true;
       }
@@ -168,14 +192,23 @@ async function checkWin() {
       isOnline: state.isOnlineMode 
     });
     
-    // オンライン対戦の場合、ホストが最終スナップショットを送信してから同期を停止
+    // オンライン対戦の場合、ホストが最終スナップショットを送信してから接続を切断
     if (typeof window !== 'undefined' && window._magicballWebRTC) {
       if (state.isHost) {
-        console.log('[checkWin] Sending final snapshot before stopping sync');
+        console.log('[checkWin] Sending final snapshot');
         broadcastSnapshot(); // 最終状態を送信
+        
+        // 非ホストが3秒後に自動復帰するので、3.5秒待ってから接続を切断
+        // これにより、非ホストがルームに戻る前に接続が切れることを防ぐ
+        setTimeout(() => {
+          console.log('[checkWin] Closing WebRTC connections after clients returned to room');
+          stopWebRTCSync();
+          if (window._magicballWebRTC) {
+            window._magicballWebRTC.close();
+            window._magicballWebRTC = null;
+          }
+        }, 3500);
       }
-      console.log('[checkWin] Stopping WebRTC sync');
-      stopWebRTCSync();
     }
     
     // オンライン対戦かつホストの場合のみ結果をサーバーに送信
@@ -231,7 +264,8 @@ function setupWebRTCSync() {
   window._magicball = {
     handlePlayerDisconnected,
     endGameAndReturnToRoom,
-    resetGame
+    resetGame,
+    stopWebRTCSync
   };
 }
 
@@ -289,19 +323,20 @@ function handleRemoteInput(message) {
     
     state.keys[fireKey] = isFiring;
     
-    // 新しく押された場合（エッジ検出）
-    const canFire = isFiring && !wasFiring && player.ballsLeft > 0 && player.alive;
+    // 新しく押された場合（エッジ検出）- ボール数チェックはplaceBall内で行う
+    const canFire = isFiring && !wasFiring && player.alive;
     console.log('[Remote Fire Check]', {
       playerIndex,
       isFiring,
       wasFiring,
-      ballsLeft: player.ballsLeft,
+      maxBalls: player.maxBalls,
+      extraBalls: player.items.extraBalls,
       alive: player.alive,
       canFire
     });
     
     if (canFire) {
-      console.log(`[Remote Fire] P${playerIndex + 1} placed ball at (${player.x.toFixed(2)},${player.y.toFixed(2)}), ballsLeft: ${player.ballsLeft}`);
+      console.log(`[Remote Fire] P${playerIndex + 1} placed ball at (${player.x.toFixed(2)},${player.y.toFixed(2)})`);
       // 直接placeBallを呼び出す（既にインポート済み）
       placeBall(player);
     }
@@ -330,7 +365,7 @@ function createSnapshot() {
       y: p.y,
       vx: p.vx,
       vy: p.vy,
-      ballsLeft: p.ballsLeft,
+      items: p.items, // アイテム取得状況を同期
       alive: p.alive,
       score: p.score,
       combo: p.combo,
@@ -410,7 +445,9 @@ function applySnapshot(snapshot) {
       p.y = pSnapshot.y;
       p.vx = pSnapshot.vx;
       p.vy = pSnapshot.vy;
-      p.ballsLeft = pSnapshot.ballsLeft;
+      if (pSnapshot.items) {
+        p.items = pSnapshot.items; // アイテム取得状況を同期
+      }
       p.alive = pSnapshot.alive;
       p.score = pSnapshot.score;
       p.combo = pSnapshot.combo;
@@ -638,14 +675,14 @@ function loop(ts) {
 }
 
 // ゲーム開始関数
-export function startGame(totalPlayers = 2, humanPlayerIds = [], hostPlayerId = null) {
+export function startGame(totalPlayers = 2, playerInfo = [], hostPlayerId = null) {
   // 既にゲーム中の場合は何もしない（重複呼び出しを防ぐ）
   if (state.gameMode === 'playing' || state.gameMode === 'countdown') {
     console.warn('[startGame] Already in playing/countdown mode, ignoring duplicate call');
     return;
   }
   
-  console.log('[startGame] Starting game with countdown:', { totalPlayers, humanPlayerIds, hostPlayerId, currentMode: state.gameMode });
+  console.log('[startGame] Starting game with countdown:', { totalPlayers, playerInfo, hostPlayerId, currentMode: state.gameMode });
   
   // ゲーム開始時にコントロールUIを非表示（カウントダウン開始時）
   const controlsDiv = document.getElementById('controls');
@@ -668,10 +705,10 @@ export function startGame(totalPlayers = 2, humanPlayerIds = [], hostPlayerId = 
       console.log('[startGame] Game started!');
       
       // ゲーム開始処理
-      resetGame(totalPlayers, humanPlayerIds);
+      resetGame(totalPlayers, playerInfo);
       
       // ゲーム開始処理を続ける
-      continueGameStart(totalPlayers, humanPlayerIds, hostPlayerId);
+      continueGameStart(totalPlayers, playerInfo, hostPlayerId);
     }
   }, TIMING.COUNTDOWN_INTERVAL);
 }
@@ -679,7 +716,7 @@ export function startGame(totalPlayers = 2, humanPlayerIds = [], hostPlayerId = 
 /**
  * カウントダウン後のゲーム開始処理
  */
-function continueGameStart(totalPlayers, humanPlayerIds, hostPlayerId) {
+function continueGameStart(totalPlayers, playerInfo, hostPlayerId) {
   // オンラインモードの場合、ホスト判定を設定
   if (state.isOnlineMode) {
     // hostPlayerIdが渡されている場合はそれを使用
@@ -687,9 +724,9 @@ function continueGameStart(totalPlayers, humanPlayerIds, hostPlayerId) {
       state.isHost = (parseInt(hostPlayerId) === parseInt(window.playerSession.playerId));
       console.log('[startGame] Host status from hostPlayerId:', state.isHost, { hostPlayerId, myPlayerId: window.playerSession.playerId });
     }
-    // フォールバック: 自分のIDがhumanPlayerIds[0]ならホストとみなす
-    else if (typeof window !== 'undefined' && window.playerSession) {
-      state.isHost = (parseInt(window.playerSession.playerId) === humanPlayerIds[0]);
+    // フォールバック: 自分のIDがplayerInfo[0].playerIdならホストとみなす
+    else if (typeof window !== 'undefined' && window.playerSession && playerInfo && playerInfo.length > 0) {
+      state.isHost = (parseInt(window.playerSession.playerId) === parseInt(playerInfo[0].playerId));
       console.log('[startGame] Host status fallback (first player):', state.isHost);
     }
     
@@ -707,7 +744,7 @@ function continueGameStart(totalPlayers, humanPlayerIds, hostPlayerId) {
     }
   }
   
-  console.log('[startGame] Game started:', { totalPlayers, humanPlayerIds, isHost: state.isHost });
+  console.log('[startGame] Game started:', { totalPlayers, playerInfo, isHost: state.isHost });
 }
 
 // ゲームリセット（外部から呼び出し可能）
@@ -729,7 +766,6 @@ function handlePlayerDisconnected(playerId) {
   if (player && player.alive) {
     console.log('[handlePlayerDisconnected] Marking player as dead:', playerId);
     player.alive = false;
-    player.ballsLeft = 0;
     player.lives = 0;
     
     // チャットで通知（ホストのみ送信）
@@ -766,11 +802,17 @@ function endGameAndReturnToRoom() {
   // WebRTC同期を停止
   stopWebRTCSync();
   
+  // WebRTC接続を切断
+  if (window._magicballWebRTC) {
+    console.log('[endGameAndReturnToRoom] Closing WebRTC connection');
+    window._magicballWebRTC.close();
+    window._magicballWebRTC = null;
+  }
+  
   // すべてのプレイヤーを死亡状態にする
   if (state.players) {
     state.players.forEach(player => {
       player.alive = false;
-      player.ballsLeft = 0;
     });
   }
   
@@ -781,30 +823,28 @@ function endGameAndReturnToRoom() {
  * オンライン対戦中に自分のプレイヤーインデックスを再計算
  * 途中参加・再参加・プレイヤー変更時に使用
  * 
- * @param {Array<number>} humanPlayerIds - 現在のゲームの人間プレイヤーIDリスト
+ * @param {Array<{playerId:number,ballType:string}>} playerInfo - 現在のゲームのプレイヤー情報配列
  */
-export function recalculateMyPlayerIndex(humanPlayerIds) {
+export function recalculateMyPlayerIndex(playerInfo) {
   if (!state.isOnlineMode) {
     console.warn('[recalculateMyPlayerIndex] Not in online mode');
     return;
   }
-  
   if (typeof window !== 'undefined' && window.playerSession && window.playerSession.playerId) {
     state.myPlayerId = window.playerSession.playerId;
-    
-    const indexInHumanPlayers = humanPlayerIds.indexOf(state.myPlayerId);
-    
-    if (indexInHumanPlayers >= 0 && indexInHumanPlayers < state.players.length) {
+    const playerIds = playerInfo.map(info => info.playerId);
+    const indexInPlayerInfo = playerIds.indexOf(state.myPlayerId);
+    if (indexInPlayerInfo >= 0 && indexInPlayerInfo < state.players.length) {
       const oldIndex = state.myPlayerIndex;
-      state.myPlayerIndex = indexInHumanPlayers;
+      state.myPlayerIndex = indexInPlayerInfo;
       state.isSpectator = false;
       console.log(`[recalculateMyPlayerIndex] My player index changed: ${oldIndex} → ${state.myPlayerIndex}`);
-    } else if (indexInHumanPlayers < 0) {
+    } else if (indexInPlayerInfo < 0) {
       state.myPlayerIndex = null;
       state.isSpectator = true;
       console.log(`[recalculateMyPlayerIndex] Now spectator: playerId=${state.myPlayerId}`);
     } else {
-      console.error(`[recalculateMyPlayerIndex] Index out of range: ${indexInHumanPlayers} >= ${state.players.length}`);
+      console.error(`[recalculateMyPlayerIndex] Index out of range: ${indexInPlayerInfo} >= ${state.players.length}`);
       state.myPlayerIndex = null;
       state.isSpectator = true;
     }

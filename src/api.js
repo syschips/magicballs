@@ -109,9 +109,10 @@ export const RoomAPI = {
    * @param {number} maxPlayers - 最大プレイヤー数
    * @param {number} gameTime - ゲーム時間（秒）
    * @param {string} ballType - ボールタイプ
+   * @param {string} gameMode - ゲームモード
    * @returns {Promise<{success: boolean, room_id?: number, message?: string}>}
    */
-  async createRoom(playerId, roomName, maxPlayers, gameTime, ballType) {
+  async createRoom(playerId, roomName, maxPlayers, ballType, gameMode = 'classic') {
     try {
       const response = await fetch(`${API_BASE_URL}/rooms/create.php`, {
         method: 'POST',
@@ -120,8 +121,8 @@ export const RoomAPI = {
           player_id: playerId,
           room_name: roomName,
           max_players: maxPlayers,
-          game_time: gameTime,
-          ball_type: ballType
+          ball_type: ballType,
+          game_mode: gameMode
         })
       });
       return await checkResponse(response);
@@ -322,7 +323,7 @@ export class PlayerSession {
   /**
    * ルーム作成
    */
-  async createRoom(roomName, maxPlayers, gameTime) {
+  async createRoom(roomName, maxPlayers, gameMode = 'classic') {
     if (!this.isLoggedIn()) {
       throw new Error('ログインが必要です');
     }
@@ -330,8 +331,8 @@ export class PlayerSession {
       this.playerId,
       roomName,
       maxPlayers,
-      gameTime,
-      this.ballType
+      this.ballType,
+      gameMode
     );
     console.log('[PlayerSession] createRoom result:', result);
     if (result.success) {
