@@ -115,6 +115,105 @@ export function getChatInputText() {
   return chatInputText;
 }
 
+// ========== スプライト設定 ==========
+const urlParams = (typeof window !== 'undefined' && typeof window.location !== 'undefined')
+  ? new URLSearchParams(window.location.search)
+  : null;
+const SPRITE_DEBUG_MODE = urlParams ? urlParams.get('debug') === 'on' : false;
+const USE_SPRITES = !SPRITE_DEBUG_MODE;
+
+const SPRITE_CACHE = new Map();
+
+const PLAYER_SPRITE_PATHS = {
+  idle: {
+    up: new URL('../imgs/k-00.gif', import.meta.url).href,
+    down: new URL('../imgs/k-01.gif', import.meta.url).href,
+    left: new URL('../imgs/k-02.gif', import.meta.url).href,
+    right: new URL('../imgs/k-03.gif', import.meta.url).href
+  },
+  move: {
+    up: new URL('../imgs/k-04.gif', import.meta.url).href,
+    down: new URL('../imgs/k-05.gif', import.meta.url).href,
+    left: new URL('../imgs/k-06.gif', import.meta.url).href,
+    right: new URL('../imgs/k-07.gif', import.meta.url).href
+  }
+};
+
+const BALL_SPRITE_PATHS = {
+  kuro: new URL('../imgs/b-00.gif', import.meta.url).href,
+  shiro: new URL('../imgs/b-01.gif', import.meta.url).href,
+  kiiro: new URL('../imgs/b-02.gif', import.meta.url).href
+};
+
+// ベース値（TILEに対する比率）
+const PLAYER_SPRITE_BASE = {
+  width: TILE * 0.9,
+  footOffset: TILE * 0.35
+};
+
+const BALL_SPRITE_BASE = {
+  size: TILE * 0.7
+};
+
+let SPRITE_DRAW_SCALE = 1;
+
+function updateSpriteDrawScale(ctx) {
+  if (!ctx || !ctx.canvas || !ctx.canvas.getBoundingClientRect) return;
+  const rect = ctx.canvas.getBoundingClientRect();
+  const pxPerTile = rect.width / COLS;
+  if (!Number.isFinite(pxPerTile) || pxPerTile <= 0) return;
+  // 画面幅に応じてスケール。スマホでは縮小、広い画面では少し拡大。
+  const scale = pxPerTile / TILE;
+  SPRITE_DRAW_SCALE = Math.min(1.2, Math.max(0.6, scale));
+}
+
+function getSprite(src) {
+  if (!src) return null;
+  if (SPRITE_CACHE.has(src)) return SPRITE_CACHE.get(src);
+  const img = new Image();
+  img.src = src;
+  SPRITE_CACHE.set(src, img);
+  return img;
+}
+
+function spriteReady(img) {
+  return !!(img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0);
+}
+
+function resolveDirectionFromVector(dx, dy) {
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0 ? 'right' : 'left';
+  }
+  if (dy < 0) return 'up';
+  return 'down';
+}
+
+function getPlayerFacing(player) {
+  if (!player) return 'down';
+  const input = player._humanInput;
+  if (input && (input.dx !== 0 || input.dy !== 0)) {
+    return resolveDirectionFromVector(input.dx, input.dy);
+  }
+  const dir = player.dir || { x: 0, y: 1 };
+  if (dir.x !== 0 || dir.y !== 0) {
+    return resolveDirectionFromVector(dir.x, dir.y);
+  }
+  return 'down';
+}
+
+function isPlayerMoving(player) {
+  if (!player) return false;
+  if (player.moving && player.pendingTarget) return true;
+  const input = player._humanInput;
+  return !!(input && (input.dx !== 0 || input.dy !== 0));
+}
+
+function getBallSpritePath(ownerId) {
+  if (!state.players || !Array.isArray(state.players)) return BALL_SPRITE_PATHS.kuro;
+  const owner = state.players.find(p => p && p.id === ownerId);
+  return BALL_SPRITE_PATHS[owner?.ballType] || BALL_SPRITE_PATHS.kuro;
+}
+
 // ========== 描画ヘルパー関数 ==========
 
 /**
@@ -355,17 +454,25 @@ function renderBalls(ctx) {
     if (!k || !Number.isFinite(k.fx) || !Number.isFinite(k.fy)) continue;
     const px = k.fx * TILE;
     const py = k.fy * TILE + UI_TOP_HEIGHT;
-    
-    // ボール本体
-    ctx.fillStyle = '#222';
-    ctx.beginPath();
-    ctx.arc(px, py, TILE * 0.18, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = '14px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('●', px, py);
+
+    const spritePath = USE_SPRITES ? getBallSpritePath(k.owner) : null;
+    const sprite = USE_SPRITES ? getSprite(spritePath) : null;
+    const canDrawSprite = USE_SPRITES && spriteReady(sprite);
+
+    if (canDrawSprite) {
+      const size = BALL_SPRITE_BASE.size * SPRITE_DRAW_SCALE;
+      ctx.drawImage(sprite, px - size / 2, py - size / 2, size, size);
+    } else {
+      ctx.fillStyle = '#222';
+      ctx.beginPath();
+      ctx.arc(px, py, TILE * 0.18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('●', px, py);
+    }
     
     // 導火線バー
     const elapsed = performance.now() / 1000 - (k.placedAt || 0);
@@ -395,25 +502,33 @@ function renderExplosions(ctx) {
  */
 function renderPlayers(ctx) {
   if (!state.players || !Array.isArray(state.players)) return;
-  
-  const labels = ['A', 'B', 'C', 'D'];
-  
+
+  const labels = PLAYER_LABELS;
+  const renderList = [];
+
   for (const p of state.players) {
     if (!p) continue;
-    
-    // 移動補間計算
+
     const targetX = p.moving && p.pendingTarget ? (p.pendingTarget.x || 0) : (p.x || 0);
     const targetY = p.moving && p.pendingTarget ? (p.pendingTarget.y || 0) : (p.y || 0);
     const progress = p.moving && p.pendingTarget ? (p.moveProgress || 0) : 0;
-    const cx = ((p.x || 0) + (targetX - (p.x || 0)) * progress + 0.5) * TILE;
-    const cy = ((p.y || 0) + (targetY - (p.y || 0)) * progress + 0.5) * TILE + UI_TOP_HEIGHT;
-    
-    // 無敵時間中は点滅
+    const interpX = (p.x || 0) + (targetX - (p.x || 0)) * progress;
+    const interpY = (p.y || 0) + (targetY - (p.y || 0)) * progress;
+    const cx = (interpX + 0.5) * TILE;
+    const cy = (interpY + 0.5) * TILE + UI_TOP_HEIGHT;
+    const footY = cy + PLAYER_SPRITE_BASE.footOffset * SPRITE_DRAW_SCALE;
+
+    renderList.push({ p, cx, cy, footY });
+  }
+
+  renderList.sort((a, b) => a.footY - b.footY);
+
+  for (const entry of renderList) {
+    const { p, cx, cy, footY } = entry;
     const isInvincible = (p.invincibilityTime || 0) > 0;
     const shouldBlink = isInvincible && (Math.floor((p.invincibilityTime || 0) / INVINCIBILITY_BLINK_INTERVAL) % 2 === 0);
 
     if (p.alive && !shouldBlink) {
-      // パワーアップ効果によるオーラ
       if (hasPowerup(p.id, POWERUP_TYPES.SPEED)) {
         ctx.fillStyle = 'rgba(0,255,255,0.3)';
         ctx.beginPath();
@@ -426,21 +541,44 @@ function renderPlayers(ctx) {
         ctx.arc(cx, cy, TILE * 0.4, 0, Math.PI * 2);
         ctx.fill();
       }
-      
-      // プレイヤー本体
-      ctx.fillStyle = p.color || '#fff';
-      ctx.beginPath();
-      ctx.arc(cx, cy, TILE * 0.28, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // ラベル
-      ctx.fillStyle = '#fff';
-      ctx.font = '16px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(labels[p.id - 1] || p.id, cx, cy);
+
+      const facing = getPlayerFacing(p);
+      const moving = isPlayerMoving(p);
+      const spritePath = USE_SPRITES ? (PLAYER_SPRITE_PATHS[moving ? 'move' : 'idle'][facing] || null) : null;
+      const sprite = USE_SPRITES ? getSprite(spritePath) : null;
+      const canDrawSprite = USE_SPRITES && spriteReady(sprite);
+
+      if (canDrawSprite) {
+        const drawW = PLAYER_SPRITE_BASE.width * SPRITE_DRAW_SCALE;
+        const aspect = sprite.naturalHeight && sprite.naturalWidth ? (sprite.naturalHeight / sprite.naturalWidth) : 1;
+        const drawH = drawW * aspect;
+        const destX = cx - drawW / 2;
+        const destY = footY - drawH;
+        
+        ctx.drawImage(sprite, destX, destY, drawW, drawH);
+
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillStyle = '#fff';
+        const label = labels[p.id - 1] || p.id;
+        ctx.strokeText(label, cx, footY - 10);
+        ctx.fillText(label, cx, footY - 10);
+      } else {
+        ctx.fillStyle = p.color || '#fff';
+        ctx.beginPath();
+        ctx.arc(cx, cy, TILE * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labels[p.id - 1] || p.id, cx, cy);
+      }
     } else if (!p.alive) {
-      // 死亡時は薄く表示
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.beginPath();
       ctx.ellipse(cx, cy, 18, 8, Math.PI / 4, 0, Math.PI * 2);
@@ -466,6 +604,7 @@ function renderPlayers(ctx) {
  */
 export function render(ctx) {
   if (!ctx || !state) return;
+  updateSpriteDrawScale(ctx);
   
   // 画面をクリア
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -749,14 +888,28 @@ function renderCharSelectScreen(ctx) {
     ctx.lineWidth = isSelected ? 4 : 2;
     ctx.strokeRect(cardX, cardY, cardWidth, cardHeight);
     
-    // ボールプレビュー（大きな円）
-    ctx.fillStyle = ball.color;
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(cardX + cardWidth / 2, cardY + 70, 40, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    // ボールプレビュー（スプライト / フォールバック）
+    const previewX = cardX + cardWidth / 2;
+    const previewY = cardY + 70;
+    const previewSize = BALL_SPRITE_BASE.size * SPRITE_DRAW_SCALE * 1.4;
+    const spritePath = USE_SPRITES ? (BALL_SPRITE_PATHS[ball.id] || null) : null;
+    const sprite = USE_SPRITES ? getSprite(spritePath) : null;
+    const canDrawSprite = USE_SPRITES && spriteReady(sprite);
+
+    if (canDrawSprite) {
+      ctx.drawImage(
+        sprite,
+        previewX - previewSize / 2, previewY - previewSize / 2, previewSize, previewSize
+      );
+    } else {
+      ctx.fillStyle = ball.color;
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(previewX, previewY, 40, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
     
     // ボール名
     ctx.fillStyle = '#fff';
