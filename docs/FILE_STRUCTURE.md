@@ -8,6 +8,9 @@ Magicball/
 ├── index-nocache.html      # キャッシュ無効版HTML（開発用）
 ├── css/
 │   └── style.css          # メインスタイルシート
+├── imgs/                  # 画像アセット（スプライト）
+│   ├── k-00.gif ~ k-07.gif  # キャラクタースプライト（8方向）
+│   └── b-00.gif ~ b-02.gif  # ボールスプライト（3種類）
 ├── src/                   # フロントエンドJavaScriptソースコード
 ├── server/                # バックエンドPHPコード
 ├── docs/                  # プロジェクトドキュメント
@@ -32,31 +35,42 @@ Magicball/
 |---------|------|---------|
 | **ai.js** | AI制御 | CPU プレイヤーの思考ルーチン、行動決定 |
 | **input.js** | 入力処理 | マウス・タッチ入力の処理、入力イベント管理 |
-| **playerIndex.js** | プレイヤーインデックス管理 | プレイヤーID とインデックスのマッピング |
+
 
 ### レンダリング・エフェクト
 
 | ファイル | 役割 | 主な機能 |
 |---------|------|---------|
-| **renderer.js** | 描画処理 | Canvas への描画、マップ・プレイヤー・UIの描画 |
+| **renderer.js** | 描画処理 | Canvas への描画、マップ・プレイヤー・UIの描画、スプライト管理 |
 | **particle.js** | パーティクルシステム | パーティクルエフェクトの生成・更新・描画 |
+
+### 画像アセット（imgs/）
+
+| ファイル | 役割 | 備考 |
+|---------|------|------|
+| **k-00.gif ~ k-07.gif** | キャラクタースプライト | k-00～k-03: アイドル（上下左右）<br>k-04～k-07: 移動（上下左右） |
+| **b-00.gif ~ b-02.gif** | ボールスプライト | b-00: 黒ボール<br>b-01: 白ボール<br>b-02: 黄色ボール |
+
+**注**: `?debug=on` URLパラメータで画像を無効化し、シンプルな図形で描画できます。
 
 ### UI・通信
 
 | ファイル | 役割 | 主な機能 |
 |---------|------|---------|
 | **ui.js** | UI管理 | 画面遷移、通知、ローディング、フォーム処理 |
+| **uiAuth.js** | 認証画面 | ログイン・登録フォーム、ボールタイプ選択 |
+| **uiGameStart.js** | ゲーム開始フロー | WebRTC接続確立、ゲーム開始処理 |
+| **uiWaitingRoom.js** | 待機ルーム画面 | 参加者リスト、準備状態管理 |
 | **chat.js** | チャット機能 | チャットメッセージの送受信、表示管理 |
 | **api.js** | API通信 | REST API 呼び出し、認証・ルーム・ゲームAPI |
-| **sync.js** | 同期処理 | WebRTC経由でのゲーム状態同期 |
+| **webrtc.js** | WebRTC管理 | P2P接続、DataChannel管理、シグナリング |
 | **notifications.js** | 通知システム | 成功・エラー・情報通知の表示管理 |
 
 ### ユーティリティ
 
 | ファイル | 役割 | 主な機能 |
 |---------|------|---------|
-| **constants.js** | 定数定義 | ゲーム定数、設定値、タイミング定数 |
-| **utils.js** | ユーティリティ関数 | 汎用関数、ヘルパー関数 |
+| **constants.js** | 定数定義 | ゲーム定数、設定値、タイミング定数 || **config.js** | 設定管理 | タイミング設定、ボールタイプ設定 || **utils.js** | ユーティリティ関数 | 汎用関数、ヘルパー関数 |
 | **errorHandler.js** | エラーハンドリング | 統一されたエラー処理、エラーログ記録 |
 
 ## バックエンド（server/）
@@ -178,37 +192,52 @@ server/
 ### 1. ゲーム起動フロー
 ```
 index.html
-  → src/main.js（初期化）
-  → src/ui.js（UI初期化、認証画面表示）
+  → src/main.js（Canvas初期化、グローバル関数登録）
+  → src/ui.js（initUI実行）
+  → src/uiAuth.js（認証画面表示）
 ```
 
 ### 2. 認証フロー
 ```
-src/ui.js（ログインフォーム）
-  → src/api.js（API呼び出し）
+src/uiAuth.js（ログインフォーム）
+  → src/api.js（PlayerSession.login呼び出し）
   → server/api/auth/login.php
   → server/api/config/database.php（DB接続）
   → server/api/config/logger.php（ログ記録）
+  ← 成功時
+  → src/uiAuth.js（キャラクター選択画面表示）
 ```
 
 ### 3. ゲーム開始フロー
 ```
-src/ui.js（ルーム選択・参加）
-  → server/api/rooms/*.php
-  → src/ui.js（待機ルーム）
-  → src/sync.js（WebRTC接続確立）
-  → src/main.js（ゲームループ開始）
+src/uiAuth.js（ボールタイプ選択）
+  → src/ui.js（ルーム選択画面表示、ルーム一覧取得）
+  → server/api/rooms/list.php
+  → src/ui.js（ルーム作成 or 参加）
+  → server/api/rooms/create.php or join.php
+  → src/uiWaitingRoom.js（待機ルーム画面、ポーリング開始）
+  → server/api/rooms/state.php（定期ポーリング）
+  → src/uiWaitingRoom.js（全員準備完了検知）
+  → src/uiGameStart.js（checkAndStartGame実行）
+  → src/webrtc.js（WebRTC接続確立）
+  → src/uiGameStart.js（接続確認後、ゲーム開始ブロードキャスト）
+  → window._magicballStartGame（main.jsのstartGame関数）
+  → src/main.js（カウントダウン → resetGame → continueGameStart）
 ```
 
 ### 4. ゲーム中フロー
 ```
-src/main.js（メインループ）
-  → src/input.js（入力処理）
-  → src/player.js（プレイヤー更新）
-  → src/ai.js（AI更新）
-  → src/sync.js（状態同期）
-  → src/renderer.js（描画）
-  → src/particle.js（エフェクト描画）
+src/main.js（メインループ: requestAnimationFrame）
+  ├→ src/input.js（キーボード・マウス入力処理）
+  ├→ src/player.js（プレイヤー位置更新）
+  ├→ src/ball.js（ボール移動・衝突判定）
+  ├→ src/ai.js（CPU思考ルーチン実行）
+  ├→ src/utils.js（パワーアップ更新）
+  ├→ src/particle.js（パーティクル更新）
+  ├→ src/webrtc.js（ホスト: スナップショット送信、非ホスト: スナップショット受信適用）
+  └→ src/renderer.js（Canvas描画）
+      ├→ src/map.js（マップ描画）
+      └→ src/particle.js（パーティクル描画）
 ```
 
 ## 依存関係
@@ -225,8 +254,11 @@ main.js
   │   ├─ particle.js
   │   └─ map.js
   ├─ input.js
-  ├─ sync.js
+  ├─ webrtc.js
   └─ ui.js
+      ├─ uiAuth.js
+      ├─ uiGameStart.js
+      ├─ uiWaitingRoom.js
       ├─ api.js
       ├─ chat.js
       ├─ notifications.js
