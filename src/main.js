@@ -107,6 +107,7 @@ function resetGame(totalPlayers = 2, playerInfo = [1], mapSeed = undefined) {
       const info = playerInfo[i];
       const realPlayerId = info ? info.playerId : null;
       const ballType = info ? info.ballType : 'kuro';
+      const playerName = info ? (info.playerName || info.displayName || null) : null;
       
       console.log(`[resetGame] Creating player ${playerId}:`, { realPlayerId, ballType, gameMode });
       
@@ -115,6 +116,9 @@ function resetGame(totalPlayers = 2, playerInfo = [1], mapSeed = undefined) {
       // 人間プレイヤーかCPUかを判定
       if (realPlayerId !== null && realPlayerId !== undefined) {
         player.realPlayerId = realPlayerId; // DBのplayer_idを保存
+        if (playerName) {
+          player.displayName = playerName;
+        }
         player.isCPU = false;
         console.log(`[resetGame] Created human player ${playerId}:`, { realPlayerId, isCPU: false, pos, ballType });
       } else {

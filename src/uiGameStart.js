@@ -412,7 +412,8 @@ export function createGameStartFlow({
         const maxPlayers = room.max_players || 4;
         const playerInfo = sortedParticipants.map(p => ({
           playerId: parseInt(p.player_id),
-          ballType: p.ball_type || 'kuro'
+          ballType: p.ball_type || 'kuro',
+          playerName: p.display_name || p.player_name || null
         }));
         const filteredPlayerInfo = playerInfo.filter(info => info && info.playerId != null);
         const totalPlayers = maxPlayers;

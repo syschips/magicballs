@@ -16,6 +16,20 @@ export let chatInputMode = false;
 export let chatInputText = '';
 let chatInputElement = null;
 
+const PLAYER_LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+function formatPlayerLabel(player, index = 0) {
+  const fallback = PLAYER_LABELS[index] || `P${index + 1}`;
+  const name = player?.displayName || player?.playerName;
+  if (name) {
+    return name;
+  }
+  if (player && player.isCPU) {
+    return `CPU ${fallback}`;
+  }
+  return `Player ${fallback}`;
+}
+
 /**
  * 非表示input要素を作成（IME対応）
  */
@@ -858,64 +872,71 @@ function renderPausedScreen(ctx) {
  * ゲームオーバー/クリア画面
  */
 function renderGameOverScreen(ctx) {
+  const prevBaseline = ctx.textBaseline || 'alphabetic';
   ctx.fillStyle = 'rgba(0,0,0,0.85)';
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   
+  const players = Array.isArray(state.players) ? state.players : [];
   ctx.fillStyle = '#fff';
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   
   // タイトル表示
+  const titleY = CANVAS_H / 2 - 140;
   if (state.gameMode === 'clear') {
     ctx.font = 'bold 56px sans-serif';
     ctx.fillStyle = '#ffd700';
-    ctx.fillText('GAME CLEAR!', CANVAS_W / 2, CANVAS_H / 2 - 100);
+    ctx.fillText('GAME CLEAR!', CANVAS_W / 2, titleY);
   } else {
     ctx.font = 'bold 56px sans-serif';
     ctx.fillStyle = '#ff6b6b';
-    ctx.fillText('GAME OVER', CANVAS_W / 2, CANVAS_H / 2 - 100);
+    ctx.fillText('GAME OVER', CANVAS_W / 2, titleY);
   }
   
   // 勝者表示（大きく目立たせる）
-  const alivePlayers = state.players.filter(p => p.alive);
+  const alivePlayers = players.filter(p => p && p.alive);
   if (alivePlayers.length === 1) {
     const winner = alivePlayers[0];
-    const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
-    const winnerLabel = labels[winner.id - 1] || `P${winner.id}`;
+    const winnerLabel = formatPlayerLabel(winner, (winner.id || 1) - 1);
+    const bannerY = CANVAS_H / 2 - 30;
     
-    // 勝者のバッジ
     ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
-    ctx.fillRect(CANVAS_W / 2 - 150, CANVAS_H / 2 - 50, 300, 60);
+    ctx.fillRect(CANVAS_W / 2 - 200, bannerY - 36, 400, 72);
     
     ctx.font = 'bold 40px sans-serif';
     ctx.fillStyle = winner.color;
-    ctx.fillText(`🏆 Player ${winnerLabel} WIN!`, CANVAS_W / 2, CANVAS_H / 2 - 10);
+    ctx.fillText(`🏆 ${winnerLabel} WIN!`, CANVAS_W / 2, bannerY);
   } else if (alivePlayers.length === 0) {
     ctx.font = '28px sans-serif';
     ctx.fillStyle = '#aaa';
-    ctx.fillText('引き分け', CANVAS_W / 2, CANVAS_H / 2 - 20);
+    ctx.fillText('引き分け', CANVAS_W / 2, CANVAS_H / 2 - 30);
   }
   
   // スコアボード
+  const rowHeight = 35;
+  const boardWidth = 440;
+  const boardTop = CANVAS_H / 2 + 30;
+  const boardHeight = players.length * rowHeight + 40;
   ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-  ctx.fillRect(CANVAS_W / 2 - 200, CANVAS_H / 2 + 20, 400, state.players.length * 35 + 20);
+  ctx.fillRect(CANVAS_W / 2 - boardWidth / 2, boardTop, boardWidth, boardHeight);
   
-  ctx.fillStyle = '#fff';
   ctx.font = 'bold 22px sans-serif';
-  state.players.forEach((p, i) => {
-    const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+  players.forEach((p, i) => {
+    if (!p) return;
     const status = p.alive ? '👑' : '💀';
     ctx.fillStyle = p.color;
-    ctx.fillText(`${status} Player ${labels[i]}: ${p.score}点`, CANVAS_W / 2, CANVAS_H / 2 + 50 + i * 35);
+    const rowY = boardTop + 20 + i * rowHeight;
+    ctx.fillText(`${status} ${formatPlayerLabel(p, i)}: ${p.score}点`, CANVAS_W / 2, rowY);
   });
   
   // レート変動表示（オンライン対戦時）
   if (typeof window._magicballRateChanges !== 'undefined' && window._magicballRateChanges) {
     ctx.font = 'bold 18px sans-serif';
-    let yOffset = CANVAS_H / 2 + 50 + state.players.length * 35 + 30;
+    let yOffset = boardTop + boardHeight + 24;
     
     ctx.fillStyle = '#ffd700';
     ctx.fillText('--- レート変動 ---', CANVAS_W / 2, yOffset);
-    yOffset += 30;
+    yOffset += 26;
     
     for (const [playerId, rateChange] of Object.entries(window._magicballRateChanges)) {
       const change = rateChange.rate_change;
@@ -923,8 +944,10 @@ function renderGameOverScreen(ctx) {
       const color = change >= 0 ? '#4ade80' : '#ef4444';
       ctx.fillStyle = color;
       ctx.font = '16px sans-serif';
-      ctx.fillText(`Player ${playerId}: ${changeText} → ${rateChange.rate_after}`, CANVAS_W / 2, yOffset);
-      yOffset += 25;
+      const player = players.find(p => p && p.realPlayerId === parseInt(playerId, 10));
+      const label = player ? formatPlayerLabel(player, (player.id || 1) - 1) : `Player ${playerId}`;
+      ctx.fillText(`${label}: ${changeText} → ${rateChange.rate_after}`, CANVAS_W / 2, yOffset);
+      yOffset += 24;
     }
   }
   
@@ -944,5 +967,7 @@ function renderGameOverScreen(ctx) {
     ctx.fillStyle = '#aaa';
     ctx.fillText('リスタートボタンをクリックして再開', CANVAS_W / 2, CANVAS_H - 50);
   }
+
+  ctx.textBaseline = prevBaseline;
 }
 

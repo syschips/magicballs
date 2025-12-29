@@ -958,8 +958,8 @@ export function showGameUI() {
   if (cpu3Toggle?.parentElement) cpu3Toggle.parentElement.style.display = showOfflineControls ? 'inline-block' : 'none';
   if (cpu4Toggle?.parentElement) cpu4Toggle.parentElement.style.display = showOfflineControls ? 'inline-block' : 'none';
 
-  // ホスト時はランキング/ルーム復帰ボタンを隠す（ゲーム中は不要）
-  if (rankingBtn) rankingBtn.style.display = (state.isOnlineMode && state.isHost) ? 'none' : 'inline-block';
+  // オンライン中はランキングボタンを隠す（特に非ホスト側で不要）
+  if (rankingBtn) rankingBtn.style.display = state.isOnlineMode ? 'none' : 'inline-block';
   if (returnBtn) returnBtn.style.display = 'none';
 }
 
@@ -1267,7 +1267,8 @@ function handleHostChanged(isNowHost) {
         // playerInfo配列を再構築
         const playerInfo = data.participants.map(p => ({
           playerId: p.player_id !== undefined ? parseInt(p.player_id) : null,
-          ballType: p.ball_type || 'kuro'
+          ballType: p.ball_type || 'kuro',
+          playerName: p.display_name || p.player_name || null
         }));
         const totalPlayers = playerInfo.length;
         const hostPlayerId = data.room.host_player_id ? parseInt(data.room.host_player_id) : null;
