@@ -4,6 +4,8 @@
  * @module webrtc
  */
 
+console.log('[WebRTC Module] LOADED - v2025-12-21-new');
+
 import { handleWebRTCError, handleError, AppError, ErrorType } from './errorHandler.js';
 
 const API_BASE_URL = './server/api';
@@ -30,6 +32,11 @@ export class WebRTCManager {
     
     // RTCDataChannel管理 (playerId -> RTCDataChannel)
     this.dataChannels = new Map();
+    // 送信待ちメッセージ（DataChannel open 前にバッファ）(playerId -> Array<Object>)
+    this.pendingMessages = new Map();
+    
+    // 処理済みシグナルの記録（重複処理防止）(peerId -> {offerHash, answerHash, candidateCount})
+    this.processedSignals = new Map();
     
     // シグナリングポーリング
     this.signalingInterval = null;
@@ -37,6 +44,7 @@ export class WebRTCManager {
     // イベントハンドラ
     this.onMessageCallback = null;
     this.onConnectionStateChangeCallback = null;
+    this.onDataChannelOpenCallback = null;
     
     // ICE Serverの設定（STUNサーバー使用）
     this.iceServers = {
@@ -86,6 +94,19 @@ export class WebRTCManager {
   }
   
   /**
+   * 簡易ハッシュ関数（DJB2）
+   * @private
+   */
+  _hashString(str) {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) + str.charCodeAt(i);
+      hash = hash & hash; // 32bit整数に変換
+    }
+    return Math.abs(hash).toString(36);
+  }
+  
+  /**
    * Offer側の接続を作成（ホスト→参加者）
    * RTCPeerConnectionとDataChannelを作成し、Offerを送信
    * @param {number} targetId - 接続先の参加者プレイヤーID
@@ -98,7 +119,34 @@ export class WebRTCManager {
     const pc = new RTCPeerConnection(this.iceServers);
     this.peers.set(targetId, pc);
     
-    // DataChannelを作成（Offer側が作成）
+    // ICE Candidate処理（DataChannelより前に登録）
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log(`[WebRTC] ICE candidate generated for ${targetId}:`, event.candidate.candidate);
+        this.sendSignal(targetId, 'candidate', event.candidate);
+      } else {
+        console.log(`[WebRTC] ICE gathering complete for ${targetId}`);
+      }
+    };
+    
+    // ICE接続状態の監視
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[WebRTC] ICE connection state with ${targetId}: ${pc.iceConnectionState}`);
+    };
+    
+    // 接続状態の監視
+    pc.onconnectionstatechange = () => {
+      console.log(`[WebRTC] Connection state with ${targetId}:`, {
+        connectionState: pc.connectionState,
+        iceConnectionState: pc.iceConnectionState,
+        iceGatheringState: pc.iceGatheringState
+      });
+      if (this.onConnectionStateChangeCallback) {
+        this.onConnectionStateChangeCallback(targetId, pc.connectionState);
+      }
+    };
+    
+    // DataChannelを作成（ハンドラ登録後に作成）
     const dc = pc.createDataChannel('gameData', {
       ordered: false, // 順序保証なし（低レイテンシ優先）
       maxRetransmits: 0 // 再送なし
@@ -106,25 +154,12 @@ export class WebRTCManager {
     
     this.setupDataChannel(dc, targetId);
     this.dataChannels.set(targetId, dc);
-    
-    // ICE Candidate処理
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        this.sendSignal(targetId, 'candidate', event.candidate);
-      }
-    };
-    
-    // 接続状態の監視
-    pc.onconnectionstatechange = () => {
-      console.log(`[WebRTC] Connection state with ${targetId}:`, pc.connectionState);
-      if (this.onConnectionStateChangeCallback) {
-        this.onConnectionStateChangeCallback(targetId, pc.connectionState);
-      }
-    };
+    console.log(`[WebRTC] DataChannel created for ${targetId}, initial state: ${dc.readyState}`);
     
     // Offerを作成
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    console.log(`[WebRTC] Local description set for ${targetId}, signalingState: ${pc.signalingState}`);
     
     // Offerをシグナリングサーバーに送信
     await this.sendSignal(targetId, 'offer', offer);
@@ -146,35 +181,50 @@ export class WebRTCManager {
     const pc = new RTCPeerConnection(this.iceServers);
     this.peers.set(hostId, pc);
     
-    // DataChannelを受信
-    pc.ondatachannel = (event) => {
-      const dc = event.channel;
-      this.setupDataChannel(dc, hostId);
-      this.dataChannels.set(hostId, dc);
-      console.log('[WebRTC] DataChannel received from:', hostId);
-    };
-    
-    // ICE Candidate処理
+    // ICE Candidate処理（ondatachannelより前に登録）
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log(`[WebRTC] ICE candidate generated for ${hostId}:`, event.candidate.candidate);
         this.sendSignal(hostId, 'candidate', event.candidate);
+      } else {
+        console.log(`[WebRTC] ICE gathering complete for ${hostId}`);
       }
+    };
+    
+    // ICE接続状態の監視
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[WebRTC] ICE connection state with ${hostId}: ${pc.iceConnectionState}`);
     };
     
     // 接続状態の監視
     pc.onconnectionstatechange = () => {
-      console.log(`[WebRTC] Connection state with ${hostId}:`, pc.connectionState);
+      console.log(`[WebRTC] Connection state with ${hostId}:`, {
+        connectionState: pc.connectionState,
+        iceConnectionState: pc.iceConnectionState,
+        iceGatheringState: pc.iceGatheringState
+      });
       if (this.onConnectionStateChangeCallback) {
         this.onConnectionStateChangeCallback(hostId, pc.connectionState);
       }
     };
     
+    // DataChannelを受信
+    pc.ondatachannel = (event) => {
+      const dc = event.channel;
+      console.log(`[WebRTC] DataChannel event received from ${hostId}, state: ${dc.readyState}`);
+      this.setupDataChannel(dc, hostId);
+      this.dataChannels.set(hostId, dc);
+      console.log('[WebRTC] DataChannel registered for:', hostId);
+    };
+    
     // Remote Descriptionを設定
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    console.log(`[WebRTC] Remote description set for ${hostId}, signalingState: ${pc.signalingState}`);
     
     // Answerを作成
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
+    console.log(`[WebRTC] Local description set for ${hostId}, signalingState: ${pc.signalingState}`);
     
     // Answerをシグナリングサーバーに送信
     await this.sendSignal(hostId, 'answer', answer);
@@ -191,17 +241,53 @@ export class WebRTCManager {
    */
   setupDataChannel(dc, peerId) {
     dc.onopen = () => {
-      console.log(`[WebRTC] DataChannel opened with ${peerId}`);
+      console.log(`[WebRTC] DataChannel opened with ${peerId}, readyState: ${dc.readyState}`);
+      // バッファされているメッセージをフラッシュ
+      const queue = this.pendingMessages.get(peerId);
+      if (queue && queue.length) {
+        for (const msg of queue) {
+          try {
+            dc.send(JSON.stringify(msg));
+          } catch (error) {
+            console.error(`[WebRTC] Failed to flush queued message to ${peerId}:`, error);
+          }
+        }
+        this.pendingMessages.delete(peerId);
+      }
+      // アプリ層へ通知（遅延open時の再試行などに使用）
+      if (typeof this.onDataChannelOpenCallback === 'function') {
+        try {
+          this.onDataChannelOpenCallback(peerId);
+        } catch (cbErr) {
+          console.warn('[WebRTC] onDataChannelOpen callback error:', cbErr);
+        }
+      }
     };
     
     dc.onclose = () => {
       console.log(`[WebRTC] DataChannel closed with ${peerId}`);
-      // DataChannelをクリーンアップ
-      this.dataChannels.delete(peerId);
+      // 古いDataChannelのcloseイベントで最新エントリを消さないようガード
+      const current = this.dataChannels.get(peerId);
+      if (current === dc) {
+        this.dataChannels.delete(peerId);
+      }
     };
     
     dc.onerror = (error) => {
+      const details = {
+        peerId,
+        readyState: dc.readyState,
+        bufferedAmount: dc.bufferedAmount,
+        message: error?.message,
+        name: error?.name
+      };
+      console.error('[WebRTC] DataChannel error', details);
       handleWebRTCError(error, peerId);
+    };
+    
+    // DataChannelの状態変化を監視（デバッグ用）
+    dc.onbufferedamountlow = () => {
+      // ログ削減: bufferedamountlowは頻繁すぎるため出力しない
     };
     
     dc.onmessage = (event) => {
@@ -273,10 +359,10 @@ export class WebRTCManager {
     // 即座に1回実行
     this.pollSignaling();
     
-    // 1秒間隔でポーリング
+    // 500ms間隔でポーリング（より頻繁に候補を確認）
     this.signalingInterval = setInterval(() => {
       this.pollSignaling();
-    }, 1000);
+    }, 500);
   }
   
   /**
@@ -323,11 +409,80 @@ export class WebRTCManager {
   async handleSignal(signal) {
     const peerId = signal.player_id;
     
+    // 重複処理の検出と回避（Answerのみチェック。Offerは毎回新しいため不要）
+    const currentProcessed = this.processedSignals.get(peerId) || {};
+    let skipAnswerApply = false;
+    
+    // Answerの重複チェック（2ゲーム目以降で古いAnswerが返されるのを防止）
+    if (signal.answer) {
+      const answerStr = JSON.stringify(signal.answer);
+      const answerHash = this._hashString(answerStr);
+      if (currentProcessed.answerHash === answerHash) {
+        console.log('[WebRTC] Duplicate answer detected, skipping re-apply but will process candidates:', peerId);
+        skipAnswerApply = true;
+      }
+      currentProcessed.answerHash = answerHash;
+    }
+    
+    // Offer は重複チェックしない（毎回新しいOffer/signalingStateなため）
+    if (signal.offer) {
+      // Offer受信時はprocessedSignalsを更新しない（Answerの状態のみ記録）
+    }
+    
+    // 候補の重複チェック
+    if (signal.candidates && signal.candidates.length > 0) {
+      const candidateCount = signal.candidates.length;
+      if (currentProcessed.candidateCount === candidateCount && 
+          currentProcessed.lastCandidateTime && 
+          Date.now() - currentProcessed.lastCandidateTime < 100) {
+        // 短時間に同じ数の候補が来た = 重複の可能性
+        console.log('[WebRTC] Potential duplicate candidates detected, skipping:', peerId);
+        return;
+      }
+      currentProcessed.candidateCount = candidateCount;
+      currentProcessed.lastCandidateTime = Date.now();
+    }
+    
+    this.processedSignals.set(peerId, currentProcessed);
+
     try {
       // Offerを受信（参加者のみ）
-      if (signal.offer && !this.peers.has(peerId)) {
-        console.log('[WebRTC] Received offer from:', peerId);
-        await this.createAnswerConnection(peerId, signal.offer);
+      if (signal.offer) {
+        const existingPc = this.peers.get(peerId);
+        // 接続中（connecting/connected）は置き換えずに既存の確立を待つ
+        // ただし、失敗/切断状態（failed/disconnected）は置き換える
+        const progressingStates = ['connected', 'completed', 'connecting'];
+        const progressingIceStates = ['connected', 'completed', 'checking'];
+        const existingDc = this.dataChannels.get(peerId);
+        const dcOpen = existingDc && existingDc.readyState === 'open';
+        const isProgressing = existingPc && (
+          progressingStates.includes(existingPc.connectionState) || 
+          progressingIceStates.includes(existingPc.iceConnectionState)
+        );
+        // DataChannel が未openのまま進行中で張り付き続けるケースを救済: DCが開いていなければ置き換えを許可
+        const shouldReplaceStuckProgress = existingPc && !dcOpen;
+
+        if (existingPc && isProgressing && !shouldReplaceStuckProgress) {
+          // 接続が進行中または完了しておりDCも開いている/開く見込みなので既存を保持
+          console.log('[WebRTC] Offer received but existing connection is progressing, keeping current peer:', peerId, existingPc.connectionState, existingPc.iceConnectionState, 'dc:', existingDc?.readyState);
+        } else {
+          if (existingPc) {
+            try {
+              const dc = this.dataChannels.get(peerId);
+              if (dc && dc.readyState !== 'closed') dc.close();
+            } catch (_) {}
+            try {
+              existingPc.close();
+            } catch (_) {}
+            this.dataChannels.delete(peerId);
+            this.peers.delete(peerId);
+            console.log('[WebRTC] Replacing existing peer for new offer from:', peerId, { previousState: existingPc?.connectionState, iceState: existingPc?.iceConnectionState, dcState: existingDc?.readyState });
+          }
+          if (!this.peers.has(peerId)) {
+            console.log('[WebRTC] Received offer from:', peerId);
+            await this.createAnswerConnection(peerId, signal.offer);
+          }
+        }
       }
       
       // Answerを受信（ホストのみ）
@@ -335,20 +490,37 @@ export class WebRTCManager {
         const pc = this.peers.get(peerId);
         if (pc.signalingState === 'have-local-offer') {
           console.log('[WebRTC] Received answer from:', peerId);
-          await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
+          console.log('[WebRTC] Answer processing - before setRemoteDescription:', {
+            signalingState: pc.signalingState,
+            connectionState: pc.connectionState,
+            iceConnectionState: pc.iceConnectionState
+          });
+          if (!skipAnswerApply) {
+            await pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
+          } else {
+            console.log('[WebRTC] Skipped re-applying duplicate answer for:', peerId);
+          }
+          console.log('[WebRTC] Answer processing - after setRemoteDescription:', {
+            signalingState: pc.signalingState,
+            connectionState: pc.connectionState,
+            iceConnectionState: pc.iceConnectionState
+          });
+        } else {
+          console.log('[WebRTC] Answer received but signalingState not "have-local-offer":', peerId, pc.signalingState);
         }
       }
       
       // ICE Candidateを受信
       if (signal.candidates && signal.candidates.length > 0) {
         const pc = this.peers.get(peerId);
-        if (pc && pc.remoteDescription) {
+        if (pc) {
+          // ログ削減: ICE候補追加は頻繁すぎるため出力しない
           for (const candidate of signal.candidates) {
             try {
               await pc.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (error) {
-              // 既に追加済みの可能性があるので警告のみ
-              console.warn('[WebRTC] Failed to add ICE candidate:', error);
+              // 既に追加済みや無効な候補の場合のみ警告
+              console.warn(`[WebRTC] Failed to add ICE candidate for ${peerId}:`, error.message);
             }
           }
         }
@@ -385,7 +557,11 @@ export class WebRTCManager {
         console.error(`[WebRTC] Failed to send message to ${targetId}:`, error);
       }
     } else {
-      console.warn(`[WebRTC] DataChannel not ready for ${targetId}, state: ${dc ? dc.readyState : 'undefined'}`);
+      // DataChannel未オープン: キューに積んでonopen時に送信
+      const queue = this.pendingMessages.get(targetId) || [];
+      queue.push(message);
+      this.pendingMessages.set(targetId, queue);
+      console.warn(`[WebRTC] DataChannel not ready for ${targetId}, queued message. state: ${dc ? dc.readyState : 'undefined'}`);
     }
   }
   
@@ -413,7 +589,55 @@ export class WebRTCManager {
         } catch (error) {
           console.error(`[WebRTC] Failed to broadcast to ${targetId}:`, error);
         }
+      } else {
+        // DataChannel未オープン: キューに積んでonopen時に送信
+        const queue = this.pendingMessages.get(targetId) || [];
+        queue.push(message);
+        this.pendingMessages.set(targetId, queue);
       }
+    }
+  }
+
+  /**
+   * 接続再試行（ホスト→参加者）
+   * 既存のPeerConnection/DataChannelをクローズして、新規にOffer接続を作成
+   * @param {number} targetId
+   */
+  async retryOfferConnection(targetId, force = false) {
+    try {
+      const existingDc = this.dataChannels.get(targetId);
+      const existingPc = this.peers.get(targetId);
+
+      // 既に接続が進行中/確立済み、またはDCがopenならリトライせず様子を見る
+      const safeStates = ['connected', 'completed', 'connecting'];
+      const iceSafeStates = ['connected', 'completed', 'checking'];
+      const pcSafe = existingPc && (safeStates.includes(existingPc.connectionState) || iceSafeStates.includes(existingPc.iceConnectionState));
+      const dcOpen = existingDc && existingDc.readyState === 'open';
+      if (!force && (pcSafe || dcOpen)) {
+        console.log('[WebRTC] retryOfferConnection skipped (connection in progress or open):', targetId, {
+          pcState: existingPc?.connectionState,
+          iceState: existingPc?.iceConnectionState,
+          dcState: existingDc?.readyState,
+          forced: force
+        });
+        return;
+      }
+
+      // 不安定な場合のみ再作成
+      if (existingDc && existingDc.readyState !== 'closed') {
+        try { existingDc.close(); } catch (_) {}
+      }
+      this.dataChannels.delete(targetId);
+      if (existingPc && existingPc.connectionState !== 'closed') {
+        try { existingPc.close(); } catch (_) {}
+      }
+      this.peers.delete(targetId);
+      this.pendingMessages.delete(targetId);
+      this.processedSignals.delete(targetId);
+      console.log('[WebRTC] Retrying offer connection to:', targetId, { forced: force });
+      await this.createOfferConnection(targetId);
+    } catch (err) {
+      console.warn('[WebRTC] retryOfferConnection error:', err);
     }
   }
   
@@ -433,6 +657,15 @@ export class WebRTCManager {
    */
   onConnectionStateChange(callback) {
     this.onConnectionStateChangeCallback = callback;
+  }
+  
+  /**
+   * DataChannelがopenした際のコールバックを設定
+   * 遅延オープン時の開始ブロードキャスト再試行などに使用
+   * @param {Function} callback - (peerId: number) => void
+   */
+  onDataChannelOpen(callback) {
+    this.onDataChannelOpenCallback = callback;
   }
   
   /**
@@ -482,6 +715,9 @@ export class WebRTCManager {
       }
     }
     this.peers.clear();
+    // シグナル/キューをクリア（ゲーム再開時に古い情報を持ち越さない）
+    this.pendingMessages.clear();
+    this.processedSignals.clear();
     
     console.log('[WebRTC] All connections closed successfully');
   }

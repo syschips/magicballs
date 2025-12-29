@@ -1,3 +1,4 @@
+
 <?php
 /**
  * 準備完了状態更新API
@@ -6,7 +7,7 @@
  * 
  * @endpoint POST /api/rooms/ready.php
  * 
- * @param string room_id ルームID（VARCHAR(32)）
+ * @param string room_id ルームID（VARCHAR(32））
  * @param int player_id プレイヤーID
  * @param bool is_ready 準備完了状態
  * 
@@ -28,12 +29,13 @@
  * @note 全員がis_ready=trueになると、game_rooms.statusを'playing'に更新
  */
 
+require_once '../config/logger.php';
+require_once '../config/database.php';
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
-
-require_once '../config/database.php';
 
 // OPTIONSリクエストへの対応
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -128,9 +130,11 @@ try {
     ]);
     
 } catch (PDOException $e) {
-    if ($db->inTransaction()) {
+    if (isset($db) && $db->inTransaction()) {
         $db->rollBack();
     }
+    $logger = new Logger();
+    $logger->logError('ready.php: DBエラー', '', $e);
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Server error']);
 }

@@ -419,10 +419,10 @@ export function runAI(p, dt) {
   // タイマーが0以下の場合も行動
   const shouldAct = (p._ai.timer <= 0) || (currentDanger >= 100);
   
-  // デバッグ用ログ
-  if (currentDanger >= 100 || currentDanger === Infinity) {
-    console.log(`[AI Debug] danger=${currentDanger}, pos=(${cx},${cy}), timer=${p._ai.timer.toFixed(3)}, balls=${state.balls.length}, shouldAct=${shouldAct}`);
-  }
+  // ログ削減: AI判断は頻繁すぎるため出力しない
+  // if (currentDanger >= 100 || currentDanger === Infinity) {
+  //   console.log(`[AI Debug] danger=${currentDanger}, pos=(${cx},${cy}), timer=${p._ai.timer.toFixed(3)}, balls=${state.balls.length}, shouldAct=${shouldAct}`);
+  // }
   
   if (!shouldAct) {
     return null;
@@ -490,15 +490,15 @@ export function runAI(p, dt) {
     bestMove = equalDangerMoves[Math.floor(Math.random() * equalDangerMoves.length)];
   }
   
-  // デバッグ: bestMoveの内容を確認
-  if ((currentDanger >= 100 || currentDanger === Infinity) && bestMove) {
-    console.log(`[AI bestMove] Selected move: (${bestMove.x},${bestMove.y}), currentDanger=${currentDanger}, bestDanger=${bestDanger}`);
-  }
+  // ログ削減: AI bestMove選択は頻繁すぎるため出力しない
+  // if ((currentDanger >= 100 || currentDanger === Infinity) && bestMove) {
+  //   console.log(`[AI bestMove] Selected move: (${bestMove.x},${bestMove.y}), currentDanger=${currentDanger}, bestDanger=${bestDanger}`);
+  // }
   
   // 移動実行（危険回避時のみ、またはInfinityから脱出時）
   if (bestMove && (currentDanger >= 100 || currentDanger === Infinity)) {
     tryStartMove(p, bestMove.x, bestMove.y);
-    console.log(`[AI Escape] Moving to (${cx + bestMove.x},${cy + bestMove.y}), danger ${currentDanger} -> ${bestDanger}`);
+    // ログ削減: AI Escape移動は頻繁すぎるため出力しない
     // 次の判定タイミング
     if (currentDanger >= 500) {
       p._ai.timer = 0.01; // 高危険時は頻繁にチェック

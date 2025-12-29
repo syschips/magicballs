@@ -202,22 +202,22 @@ export function updatePlayers(dt, runAI) {
             const d = computeMoveDirectionFromKeys(p1map);
             player._humanInput = { dx: d.dx, dy: d.dy };
             
-            if (state.keys[state.keybinds.p1fire]) {
+            // 自分のインデックスに応じた発射キーを使用
+            const myFireKey = (i === 0) ? state.keybinds.p1fire
+                              : (i === 1) ? state.keybinds.p2fire
+                              : (i === 2) ? state.keybinds.p3fire
+                              : state.keybinds.p4fire;
+            if (myFireKey && state.keys[myFireKey]) {
               console.log(`[Host Fire] index=${i}, pos=(${player.x.toFixed(2)},${player.y.toFixed(2)})`);
-              state.keys[state.keybinds.p1fire] = false;
+              state.keys[myFireKey] = false;
               if (i === 0) fireAction = { player, action: 'fire' };
               else if (i === 1) p2Action = { player, action: 'fire' };
             }
           }
-          // リモートプレイヤーはhandleRemoteInputで設定された_humanInputを使用（既に設定済み）
+          // リモートプレイヤーはhandleRemoteInputで発射処理済み（_humanInputのみ使用）
           else {
             // _humanInputは既にhandleRemoteInputで設定されている
-            // 発射キーもhandleRemoteInputで設定されている
-            if (i === 1 && state.keys[state.keybinds.p2fire]) {
-              console.log(`[Remote Fire] index=${i}, pos=(${player.x.toFixed(2)},${player.y.toFixed(2)})`);
-              state.keys[state.keybinds.p2fire] = false;
-              p2Action = { player, action: 'fire' };
-            }
+            // 発射はhandleRemoteInputでplaceBall済みのためここでは行わない
           }
         } else {
           player._humanInput = { dx: 0, dy: 0 };
@@ -405,7 +405,7 @@ export function updatePlayers(dt, runAI) {
         // 配置からの経過時間で残り時間を計算
         const elapsed = now - ball.placedAt;
         const remaining = ball.fuse - elapsed;
-        console.log(`[Ball Collision] P${p.id} stepped on ball! remaining=${remaining.toFixed(2)}s, fuse=${ball.fuse}, moving=${ball.moving}`);
+        // ログ削減: ボール衝突は頻繁すぎるため出力しない
         // 配置から0.5秒以上経過し、かつ残り時間が3秒以下の場合のみ爆発
         if (elapsed >= 0.5 && remaining <= BALL_COLLISION_EXPLODE_TIME) {
           // 残り時間以下: 即座に爆発トリガー

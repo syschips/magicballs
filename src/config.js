@@ -25,7 +25,7 @@ export const TIMING = {
   
   // WebRTC関連
   CONNECTION_CHECK_INTERVAL: 100,
-  MAX_CONNECTION_WAIT: 3000,
+    MAX_CONNECTION_WAIT: 10000,  // 10秒に延長（再開時の接続確立に十分な時間を与える）
   
   // ポーリング関連
   ROOM_LIST_POLLING_INTERVAL: 5000,
@@ -44,7 +44,7 @@ export const TIMING = {
  * @property {number} HOST_RESPONSE_TIMEOUT - ホストからの応答を待つタイムアウト時間（30秒）
  */
 export const WEBRTC_CONFIG = {
-  MAX_CONNECTION_ATTEMPTS: 30,
+  MAX_CONNECTION_ATTEMPTS: 300,
   HOST_RESPONSE_TIMEOUT: 30000,
 };
 

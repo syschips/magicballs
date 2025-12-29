@@ -16,8 +16,17 @@ function sendInputEvent(type, data) {
   const webrtc = window._magicballWebRTC;
   if (!webrtc || !window.playerSession) return;
   
-  const hostPlayerId = state.players.find(p => !p.isCPU && p.realPlayerId !== window.playerSession.playerId)?.realPlayerId;
-  if (!hostPlayerId) return;
+  // 送信先のホストIDを優先的にstateから取得（起動時に保持）
+  let hostPlayerId = state.hostPlayerId;
+  // フォールバック: プレイヤー一覧から「自分以外の人間プレイヤー」をホストとみなす（非推奨だが念のため）
+  if (!hostPlayerId) {
+    const candidate = state.players.find(p => !p.isCPU && p.realPlayerId !== window.playerSession.playerId);
+    hostPlayerId = candidate?.realPlayerId;
+  }
+  if (!hostPlayerId) {
+    console.warn('[Input] Host playerId not found; input not sent');
+    return;
+  }
   
   webrtc.send(hostPlayerId, {
     type: 'input',
@@ -49,6 +58,9 @@ function sendMoveInput() {
   const fireKey = getFireKey(state.myPlayerIndex);
   const firing = state.keys[fireKey] || false;
   lastFiringState = firing;
+  
+  // 送信内容のデバッグ（非連続に送るため適度に抑制される）
+  console.log('[Input] sendMoveInput', { dx, dy, firing, fireKey });
   
   // ホストに送信
   sendInputEvent('move', { dx, dy, firing });
@@ -101,7 +113,9 @@ export function setupKeyboardInput() {
   
   window.addEventListener('keydown', e => {
     if (!e || !e.key) return;
-    const k = e.key.toLowerCase();
+    let k = e.key.toLowerCase();
+    // ブラウザ差異の正規化: 'space' / 'spacebar' を ' ' に統一
+    if (k === 'space' || k === 'spacebar') k = ' ';
     
     // デバッグ: Enterキーの状態をログ
     if (k === 'enter') {
@@ -170,14 +184,16 @@ export function setupKeyboardInput() {
     }
     
     // 矢印キーとスペースのデフォルト動作(スクロール)を防止
-    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) {
+    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'space', 'spacebar'].includes(k)) {
       e.preventDefault();
     }
   });
   
   window.addEventListener('keyup', e => {
     if (!e || !e.key) return;
-    const k = e.key.toLowerCase();
+    let k = e.key.toLowerCase();
+    // ブラウザ差異の正規化: 'space' / 'spacebar' を ' ' に統一
+    if (k === 'space' || k === 'spacebar') k = ' ';
     
     // チャット入力モード時は通常入力を無効化
     if (chatInputMode) {

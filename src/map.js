@@ -29,8 +29,19 @@ const MAP_PATTERNS = [
  * - 外周の外側は移動不可
  * - 18×12の領域内はすべて破壊可能ブロック(値2)をパターン配置
  * - プレイヤー初期位置はL字型3マス分を確保
+ * @param {number} [seed] - マップ同期用の乱数シード（省略時はMath.random）
  */
-export function initMap() {
+export function initMap(seed) {
+  // シード付き乱数生成器
+  let rng = Math.random;
+  if (typeof seed === 'number') {
+    let s = seed;
+    rng = function() {
+      // xorshift32
+      s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
+      return ((s < 0 ? ~s + 1 : s) % 100000) / 100000;
+    };
+  }
   try {
     // プレイヤー初期位置の定義
     const p1Start = { x: 0, y: 0 };             // P1: 左上
@@ -48,8 +59,9 @@ export function initMap() {
       throw new Error('Map initialization failed');
     }
 
-  // パターンを選択(現在は1つのみ)
-  const pattern = MAP_PATTERNS[0];
+  // パターンを選択（将来拡張用に乱数で選択）
+  const patternIndex = 0; // 1パターンのみ
+  const pattern = MAP_PATTERNS[patternIndex];
   
   // パターンに従ってブロックを配置
   for (let y = 0; y < ROWS && y < pattern.length; y++) {

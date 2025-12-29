@@ -50,17 +50,20 @@ export const state = {
   isOnlineMode: false,      // オンラインモードかどうか
   isSpectator: false,       // 観戦モードかどうか
   isHost: false,            // ホストかどうか（AIを実行する権限）
+  shouldAutoReturnToRoom: false, // 自動ルーム復帰フラグ（ゲーム終了時）
   
   // WebRTC同期用
   inputBuffer: new Map(),   // playerId -> 入力履歴のバッファ
   lastProcessedTick: new Map(), // playerId -> 最後に処理したTick番号
   snapshotHistory: []       // 過去のスナップショット（予測補正用）
+  ,gameSessionId: null       // 現在のゲームセッション識別子（リプレイ/重複スナップショット防止）
 };
 
 /**
  * ゲーム状態を初期化
  */
 export function resetState() {
+  state.map = [];
   state.balls = [];
   state.items = [];
   state.previews = [];
@@ -84,6 +87,11 @@ export function resetState() {
   state.inputBuffer = new Map();
   state.lastProcessedTick = new Map();
   state.snapshotHistory = [];
+  state.selectedBallType = 'kuro';
+  state.currentRoomId = null;
+  state.currentGameMode = 'classic';
+  state.shouldAutoReturnToRoom = false; // 自動ルーム復帰フラグをクリア
+  // gameSessionId は startGame/enterGameStartPhase で上書きされるためここでは保持する
 }
 
 // グローバルに公開（ui.jsのWebRTC切断判定で使用）

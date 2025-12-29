@@ -49,9 +49,9 @@ export function placeBall(player) {
   let dx = player.dir.x, dy = player.dir.y;
   if (dx === 0 && dy === 0) dy = 1; // デフォルトは下向き
   
-  // プレイヤーの所属マスの中心に配置
-  const cellX = Math.round(player.x);
-  const cellY = Math.round(player.y);
+  // プレイヤーの現在位置（足元の中心）に配置
+  const spawnFx = (player.x || 0) + 0.5;
+  const spawnFy = (player.y || 0) + 0.5;
   
   // 粘着性パワーアップの確認
   const hasSticky = hasPowerup(player.id, POWERUP_TYPES.STICKY);
@@ -74,7 +74,7 @@ export function placeBall(player) {
   
   const ball = {
     id: Math.random().toString(36).slice(2, 10),
-    fx: cellX + 0.5, fy: cellY + 0.5, // マスの中心に配置
+    fx: spawnFx, fy: spawnFy, // プレイヤーの足元から配置（現在位置に追従）
     dir: { x: dx, y: dy },
     speed: hasSticky ? 0 : actualSpeed,
     fuse: Math.max(2, Math.min(5, player.ballStats.stage)),
@@ -98,7 +98,7 @@ export function placeBall(player) {
       if (dir.x !== dx || dir.y !== dy) { // 元の方向以外
         const extraBall = {
           id: Math.random().toString(36).slice(2, 10),
-          fx: cellX + 0.5, fy: cellY + 0.5,
+          fx: spawnFx, fy: spawnFy,
           dir: { x: dir.x, y: dir.y },
           speed: hasSticky ? 0 : actualSpeed, // 同じactualSpeedを使用
           fuse: Math.max(2, Math.min(5, player.ballStats.stage)),

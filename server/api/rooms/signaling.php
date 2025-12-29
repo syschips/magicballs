@@ -1,3 +1,4 @@
+
 <?php
 /**
  * WebRTCシグナリングAPI
@@ -26,12 +27,13 @@
  * @note データは5分で自動削除される想定（TTL実装推奨）
  */
 
+require_once '../config/logger.php';
+require_once '../config/database.php';
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
-
-require_once '../config/database.php';
 
 // OPTIONSリクエストへの対応
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -93,7 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             SET webrtc_answer = :signal_data 
                             WHERE room_id = :room_id AND player_id = :player_id";
         } else { // candidate
-            // ICE Candidateは複数追加される可能性があるので配列として保存
+            // ICE Candidateは複数追加される可能性があるので、プレイヤーごとに配列として保存
+            // 形式: { "playerId": [candidate1, candidate2, ...] }
             $get_query = "SELECT webrtc_candidates FROM room_participants 
                          WHERE room_id = :room_id AND player_id = :player_id";
             $get_stmt = $db->prepare($get_query);
@@ -102,9 +105,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $get_stmt->execute();
             
             $current = $get_stmt->fetch(PDO::FETCH_ASSOC);
-            $candidates = $current['webrtc_candidates'] ? json_decode($current['webrtc_candidates'], true) : [];
-            $candidates[] = $signal_data;
-            $signal_json = json_encode($candidates);
+            $candidatesObj = $current['webrtc_candidates'] ? json_decode($current['webrtc_candidates'], true) : [];
+            
+            // このプレイヤーの候補配列を初期化（なければ空配列）
+            if (!isset($candidatesObj[$player_id])) {
+              $candidatesObj[$player_id] = [];
+            }
+            // 新しい候補を追加
+            $candidatesObj[$player_id][] = $signal_data;
+            
+            $signal_json = json_encode($candidatesObj);
             
             $update_query = "UPDATE room_participants 
                             SET webrtc_candidates = :signal_data 
@@ -124,10 +134,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         
     } catch (Exception $e) {
+        $logger = new Logger();
+        $logger->logError('signaling.php: エラー', '', $e);
         http_response_code(500);
         echo json_encode([
             'success' => false, 
-            'message' => 'Database error: ' . $e->getMessage()
+            'message' => 'Server error'
         ]);
     }
 
@@ -158,18 +170,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         
         $signals = [];
+        $sendersToClear = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $candidatesObj = $row['webrtc_candidates'] ? json_decode($row['webrtc_candidates'], true) : [];
+            
+            // このプレイヤーからの候補を取得
+            $myCandidates = isset($candidatesObj[$row['player_id']]) ? $candidatesObj[$row['player_id']] : [];
+            
             $signal = [
                 'player_id' => (int)$row['player_id'],
                 'offer' => $row['webrtc_offer'] ? json_decode($row['webrtc_offer'], true) : null,
                 'answer' => $row['webrtc_answer'] ? json_decode($row['webrtc_answer'], true) : null,
-                'candidates' => $row['webrtc_candidates'] ? json_decode($row['webrtc_candidates'], true) : []
+                'candidates' => $myCandidates
             ];
             
             // nullではないデータのみ含める
             if ($signal['offer'] || $signal['answer'] || !empty($signal['candidates'])) {
                 $signals[] = $signal;
+                $sendersToClear[] = (int)$row['player_id'];
             }
+        }
+
+        // 取得後にシグナルをクリアして重複配信を防ぐ
+        if (!empty($sendersToClear)) {
+            $inPlaceholders = implode(',', array_fill(0, count($sendersToClear), '?'));
+            $clearQuery = "UPDATE room_participants 
+                           SET webrtc_offer = NULL, webrtc_answer = NULL, webrtc_candidates = NULL 
+                           WHERE room_id = ? AND player_id IN ($inPlaceholders)";
+            $clearStmt = $db->prepare($clearQuery);
+            $clearStmt->bindValue(1, $room_id);
+            $idx = 2;
+            foreach ($sendersToClear as $pid) {
+                $clearStmt->bindValue($idx, $pid, PDO::PARAM_INT);
+                $idx++;
+            }
+            $clearStmt->execute();
         }
         
         echo json_encode([
@@ -178,10 +213,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         
     } catch (Exception $e) {
+        $logger = new Logger();
+        $logger->logError('signaling.php: エラー', '', $e);
         http_response_code(500);
         echo json_encode([
             'success' => false, 
-            'message' => 'Database error: ' . $e->getMessage()
+            'message' => 'Server error'
         ]);
     }
 

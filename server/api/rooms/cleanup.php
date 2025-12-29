@@ -17,24 +17,27 @@
  *   @property string message メッセージ
  */
 
+
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: POST");
 header("Access-Control-Allow-Headers: Content-Type");
 
 require_once '../config/database.php';
+require_once '../config/logger.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $database = new Database();
         $db = $database->getConnection();
-        
+        $logger = new Logger();
+
         // 1. 参加者が0人のルームを削除
         $query1 = "DELETE FROM game_rooms WHERE current_players = 0";
         $stmt1 = $db->prepare($query1);
         $stmt1->execute();
         $deleted1 = $stmt1->rowCount();
-        
+
         // 2. waiting状態で、全員が10分以上非アクティブなルームを削除
         // (最後のlast_seen_atが10分以上前)
         $query2 = "DELETE gr FROM game_rooms gr
@@ -47,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt2 = $db->prepare($query2);
         $stmt2->execute();
         $deleted2 = $stmt2->rowCount();
-        
+
         // 3. finished状態で30分以上放置されたルームを削除
         $query3 = "DELETE FROM game_rooms 
                    WHERE status = 'finished' 
@@ -55,9 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt3 = $db->prepare($query3);
         $stmt3->execute();
         $deleted3 = $stmt3->rowCount();
-        
+
         $total = $deleted1 + $deleted2 + $deleted3;
-        
+
         http_response_code(200);
         echo json_encode([
             "success" => true,
@@ -70,8 +73,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             "message" => "{$total}個のルームを削除しました"
         ]);
     } catch (PDOException $e) {
+        if (!isset($logger)) {
+            $logger = new Logger();
+        }
+        $logger->logError('cleanup.php: DBエラー', '', $e);
         http_response_code(500);
-        echo json_encode(["success" => false, "message" => "Server error"]);
+        echo json_encode([
+            "success" => false,
+            "message" => "Server error"
+        ]);
+    } catch (Exception $e) {
+        if (!isset($logger)) {
+            $logger = new Logger();
+        }
+        $logger->logError('cleanup.php: その他エラー', '', $e);
+        http_response_code(500);
+        echo json_encode([
+            "success" => false,
+            "message" => "Server error"
+        ]);
     }
 } else {
     http_response_code(405);

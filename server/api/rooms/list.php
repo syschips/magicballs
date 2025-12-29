@@ -1,3 +1,4 @@
+
 <?php
 /**
  * ルーム一覧取得API
@@ -28,11 +29,12 @@
  * @note status='waiting'のルームのみ返す（最大50件）
  */
 
+require_once '../config/logger.php';
+require_once '../config/database.php';
+
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET");
-
-require_once '../config/database.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
@@ -40,10 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $db = $database->getConnection();
         
         $query = "SELECT room_id, room_name, max_players, current_players, status, game_time, game_mode, created_at 
-                  FROM game_rooms 
-                  WHERE status = 'waiting' 
-                  ORDER BY created_at DESC 
-                  LIMIT 50";
+              FROM game_rooms 
+              WHERE status IN ('waiting', 'playing') 
+              ORDER BY created_at DESC 
+              LIMIT 50";
         $stmt = $db->prepare($query);
         $stmt->execute();
         
@@ -68,6 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             "count" => count($rooms)
         ]);
     } catch (Exception $e) {
+        $logger = new Logger();
+        $logger->logError('list.php: エラー', '', $e);
         http_response_code(500);
         echo json_encode(["success" => false, "message" => "Server error"]);
     }

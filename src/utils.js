@@ -4,7 +4,10 @@
 
 import { COLS, ROWS, POWERUP_TYPES, POWERUP_DURATION, POWERUP_DROP_CHANCE, 
          SCORE_BLOCK_DESTROY, SCORE_PLAYER_HIT, COMBO_TIMEOUT, COMBO_MULTIPLIER_BASE, GAME_MODES } from './constants.js';
-import { state } from './state.js';
+import * as StateModule from './state.js';
+
+// 名前付きエクスポートが取得できない環境でも動作するようにフォールバック
+const state = StateModule.state || (typeof window !== 'undefined' ? window._magicballState : undefined);
 
 /**
  * 座標がフィールド内か判定

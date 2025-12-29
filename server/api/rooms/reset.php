@@ -1,3 +1,4 @@
+
 <?php
 /**
  * ルームリセットAPI
@@ -5,16 +6,18 @@
  * ゲーム終了後、ルームを待機状態に戻して再度プレイ可能にする
  */
 
+require_once '../config/logger.php';
+require_once '../config/database.php';
+
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: POST");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-require_once '../config/database.php';
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents("php://input"));
-    
+    $db = null;
+
     if (!empty($data->room_id)) {
         try {
             $database = new Database();
@@ -33,6 +36,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("ルームが見つかりません");
             }
             
+            // idempotent: waiting なら成功として返す
+            if ($room['status'] === 'waiting') {
+                $db->commit();
+                http_response_code(200);
+                echo json_encode([
+                    "success" => true,
+                    "message" => "既に待機状態です",
+                    "room_id" => $data->room_id,
+                    "status" => "waiting"
+                ]);
+                exit;
+            }
+            
             // playing または finished ステータスからのみリセット可能
             if ($room['status'] !== 'finished' && $room['status'] !== 'playing') {
                 throw new Exception("ゲームが開始または終了していません");
@@ -48,12 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $update_room_stmt->bindParam(':room_id', $data->room_id);
             $update_room_stmt->execute();
             
-            // 参加者の準備状態と結果をリセット
+            // 参加者の準備状態と結果・シグナリングをリセット
             $reset_participants = "UPDATE room_participants 
                                    SET is_ready = FALSE, 
                                        result = NULL, 
                                        score = 0,
-                                       rate_after = NULL
+                                       rate_after = NULL,
+                                       webrtc_offer = NULL,
+                                       webrtc_answer = NULL,
+                                       webrtc_candidates = NULL
                                    WHERE room_id = :room_id";
             $reset_stmt = $db->prepare($reset_participants);
             $reset_stmt->bindParam(':room_id', $data->room_id);
@@ -64,6 +83,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $delete_stmt = $db->prepare($delete_state);
             $delete_stmt->bindParam(':room_id', $data->room_id);
             $delete_stmt->execute();
+            
+            // 前のセッションのWebRTCシグナリングデータを削除（再接続時の ICE候補重複を防止）
+            $delete_signaling = "DELETE FROM room_signaling WHERE room_id = :room_id";
+            $signaling_stmt = $db->prepare($delete_signaling);
+            $signaling_stmt->bindParam(':room_id', $data->room_id);
+            $signaling_stmt->execute();
             
             $db->commit();
             
@@ -76,9 +101,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             
         } catch (Exception $e) {
-            $db->rollBack();
+            if ($db && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            $logger = new Logger();
+            $logger->logError('reset.php: エラー', '', $e);
             http_response_code(500);
-            echo json_encode(["success" => false, "message" => "Server error"]);
+            echo json_encode(["success" => false, "message" => "Server error", "detail" => $e->getMessage()]);
         }
     } else {
         http_response_code(400);

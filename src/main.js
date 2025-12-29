@@ -13,7 +13,7 @@ import { runAI, dangerCellsFromBalls } from './ai.js';
 import { setupKeyboardInput, setupCanvasClick, setupUIBindings } from './input.js';
 import { updatePowerups, updateCombo, hasPowerup } from './utils.js';
 import { updateParticles } from './particle.js';
-import { initUI } from './ui.js';
+import { initUI, showGameUI } from './ui.js';
 
 // Canvas初期化
 const canvas = document.getElementById('game');
@@ -30,9 +30,9 @@ const ctx = canvas.getContext('2d');
  * @param {number} totalPlayers - 総プレイヤー数（オンライン対戦時に指定）
  * @param {Array} playerInfo - プレイヤー情報配列 [{playerId, ballType}, ...] または [playerId, ...]
  */
-function resetGame(totalPlayers = 2, playerInfo = [1]) {
-  initMap();
+function resetGame(totalPlayers = 2, playerInfo = [1], mapSeed = undefined) {
   resetState();
+  initMap(mapSeed);
   
   // 初期位置の定義
   const spawnPositions = [
@@ -177,6 +177,9 @@ async function checkWin() {
   if (!state || state.gameMode !== 'playing') return;
   if (!state.players || !Array.isArray(state.players)) return;
   
+  // 非ホスト側は、ホストのスナップショットを受信するまでcheckWinを実行しない
+  if (state.isOnlineMode && !state.isHost) return;
+  
   const alive = state.players.filter(p => p && p.alive);
   if (alive.length <= 1) {
     if (alive.length === 1) {
@@ -192,23 +195,10 @@ async function checkWin() {
       isOnline: state.isOnlineMode 
     });
     
-    // オンライン対戦の場合、ホストが最終スナップショットを送信してから接続を切断
-    if (typeof window !== 'undefined' && window._magicballWebRTC) {
-      if (state.isHost) {
-        console.log('[checkWin] Sending final snapshot');
-        broadcastSnapshot(); // 最終状態を送信
-        
-        // 非ホストが3秒後に自動復帰するので、3.5秒待ってから接続を切断
-        // これにより、非ホストがルームに戻る前に接続が切れることを防ぐ
-        setTimeout(() => {
-          console.log('[checkWin] Closing WebRTC connections after clients returned to room');
-          stopWebRTCSync();
-          if (window._magicballWebRTC) {
-            window._magicballWebRTC.close();
-            window._magicballWebRTC = null;
-          }
-        }, 3500);
-      }
+    // オンライン対戦の場合、ホストが最終スナップショットを送信
+    if (typeof window !== 'undefined' && window._magicballWebRTC && state.isHost) {
+      console.log('[checkWin] Sending final snapshot');
+      broadcastSnapshot(); // 最終状態を送信
     }
     
     // オンライン対戦かつホストの場合のみ結果をサーバーに送信
@@ -216,23 +206,45 @@ async function checkWin() {
       await sendGameResultToServer();
     }
     
-    // オンライン対戦の場合、ルームに戻るボタンを表示＆3秒後に自動復帰
+    // オンライン対戦の場合、3秒後に自動でルームに戻る（ホスト・非ホスト共通）
+    console.log('[checkWin] Checking auto-return conditions:', {
+      isOnlineMode: state.isOnlineMode,
+      hasSession: typeof window._magicballSession !== 'undefined',
+      hasIsLoggedIn: window._magicballSession?.isLoggedIn !== undefined,
+      isLoggedIn: window._magicballSession?.isLoggedIn?.(),
+      hasUI: typeof window._magicballUI !== 'undefined',
+      hasReturnToRoom: window._magicballUI?.returnToRoom !== undefined
+    });
+    
     if (state.isOnlineMode &&
         typeof window._magicballSession !== 'undefined' && 
         window._magicballSession.isLoggedIn && 
         window._magicballSession.isLoggedIn() &&
         typeof window._magicballUI !== 'undefined') {
-      window._magicballUI.showReturnToRoomButton();
       
-      // 3秒後に自動でルームに戻る
+      console.log('[checkWin] Setting auto-return timer (3 seconds)');
+      
+      // ゲーム終了をマークして、タイマー発火時に確認する
+      state.shouldAutoReturnToRoom = true;
+      
+      // 3秒後に自動でルームに戻る(ホスト・非ホスト共通、ボタンは不要)
       setTimeout(() => {
-        if (state.gameMode === 'clear' || state.gameMode === 'gameover') {
-          console.log('[checkWin] Auto-returning to room after 3 seconds');
+        console.log('[checkWin] Auto-return timer fired, shouldAutoReturnToRoom:', state.shouldAutoReturnToRoom);
+        // フラグが立っている場合のみルームに戻る(ホストの再開で変更されないように)
+        if (state.shouldAutoReturnToRoom) {
+          console.log(`[checkWin] Executing auto-return to room (isHost: ${state.isHost})`);
+          state.shouldAutoReturnToRoom = false;
           if (window._magicballUI && window._magicballUI.returnToRoom) {
             window._magicballUI.returnToRoom();
+          } else {
+            console.error('[checkWin] returnToRoom function not found!');
           }
+        } else {
+          console.log('[checkWin] Auto-return cancelled (game restarted)');
         }
       }, TIMING.AUTO_RETURN_TO_ROOM_DELAY);
+    } else {
+      console.warn('[checkWin] Auto-return conditions not met, skipping timer setup');
     }
   }
 }
@@ -316,12 +328,9 @@ function handleRemoteInput(message) {
     // プレイヤーの_humanInputに保存（updatePlayers内で使用）
     player._humanInput = { dx: data.dx, dy: data.dy };
     
-    // 発射キーの状態を反映
-    const fireKey = playerIndex === 0 ? state.keybinds.p1fire : state.keybinds.p2fire;
+    // 発射入力のエッジ検出（グローバルキーは変更しない）
     const wasFiring = player._lastFiring;
     const isFiring = data.firing;
-    
-    state.keys[fireKey] = isFiring;
     
     // 新しく押された場合（エッジ検出）- ボール数チェックはplaceBall内で行う
     const canFire = isFiring && !wasFiring && player.alive;
@@ -414,6 +423,21 @@ function broadcastSnapshot() {
   if (!webrtc || !state.isHost) return;
   
   const snapshot = createSnapshot();
+  // ホストのセッションIDが欠落しないよう多重で参照し、なければ生成して埋める
+  const resolvedSessionId = state.gameSessionId
+    || (typeof window !== 'undefined' && window._magicballState && window._magicballState.gameSessionId)
+    || (typeof window !== 'undefined' && window._magicballSessionIdGlobal)
+    || Date.now();
+  if (!state.gameSessionId) {
+    state.gameSessionId = resolvedSessionId;
+    if (typeof window !== 'undefined' && window._magicballState) {
+      window._magicballState.gameSessionId = resolvedSessionId;
+    }
+  }
+  snapshot.sessionId = resolvedSessionId;
+  if (!snapshot.sessionId) {
+    console.error('[WebRTC Sync] Host snapshot missing sessionId', { stateSessionId: state.gameSessionId, tick: snapshot.tick });
+  }
   webrtc.broadcast(snapshot);
 }
 
@@ -425,12 +449,87 @@ function applySnapshot(snapshot) {
     console.warn('[WebRTC Sync] Invalid snapshot:', snapshot);
     return;
   }
+
+  // 受信時点でstate.gameSessionIdが空でも、共有状態に保持されていれば補完する
+  if (!state.isHost && !state.gameSessionId && typeof window !== 'undefined' && window._magicballState && window._magicballState.gameSessionId) {
+    state.gameSessionId = window._magicballState.gameSessionId;
+    console.log('[WebRTC Sync] Adopted sessionId from global state before snapshot apply', { sessionId: state.gameSessionId });
+  }
+  // グローバル退避からも補完（レース対策）
+  if (!state.isHost && !state.gameSessionId && typeof window !== 'undefined' && window._magicballSessionIdGlobal) {
+    state.gameSessionId = window._magicballSessionIdGlobal;
+    console.log('[WebRTC Sync] Adopted sessionId from global fallback', { sessionId: state.gameSessionId });
+  }
+
+  // クライアント側: start messageより先にスナップショットが届いた場合、
+  // スナップショットに含まれるsessionIdで初期化して適用を続行する
+  if (!state.isHost && !state.gameSessionId && snapshot.sessionId) {
+    state.gameSessionId = snapshot.sessionId;
+    console.log('[WebRTC Sync] Adopted sessionId from first snapshot', { sessionId: state.gameSessionId });
+  }
+  // 上記で補正してもなおgameSessionIdが無い場合は適用をスキップ
+  if (!state.isHost && !state.gameSessionId) {
+    console.warn('[WebRTC Sync] Ignoring snapshot before game session initialized', { snapshotSessionId: snapshot.sessionId ?? 'null', stateSessionId: state.gameSessionId ?? 'null' });
+    return;
+  }
+
+  // 異なるセッションのスナップショットは無視（終了直後の古いデータが混ざるのを防ぐ）
+  if (snapshot.sessionId && state.gameSessionId && snapshot.sessionId !== state.gameSessionId) {
+    console.warn('[WebRTC Sync] Ignoring snapshot from old session', { current: state.gameSessionId, incoming: snapshot.sessionId });
+    return;
+  }
   
   // Tick同期（ログ削除 - 20Hz で大量に出力されるため）
   state.currentTick = snapshot.tick;
   state.gameTime = snapshot.gameTime;
   state.timeScale = snapshot.timeScale;
+  
+  // ゲームモードの変更を検知して自動リターンを開始（非ホスト用）
+  const previousGameMode = state.gameMode;
   state.gameMode = snapshot.gameMode; // ゲーム終了判定を同期
+  
+  // 非ホスト側: gameModeがplayingから終了状態に変わった時、自動リターンのタイマーを設定
+  if (!state.isHost && 
+      previousGameMode === 'playing' && 
+      (state.gameMode === 'clear' || state.gameMode === 'gameover') &&
+      !state.shouldAutoReturnToRoom) {
+    
+      console.log('[applySnapshot] ✅ Game ended detected on client:', { 
+        gameMode: state.gameMode, 
+        sessionId: state.gameSessionId,
+        winner: snapshot.winner,
+        isOnlineMode: state.isOnlineMode 
+      });
+    
+    // 自動的にルームに戻る処理（ホストと同じロジック）
+    if (state.isOnlineMode &&
+        typeof window._magicballSession !== 'undefined' && 
+        window._magicballSession.isLoggedIn && 
+        window._magicballSession.isLoggedIn() &&
+        typeof window._magicballUI !== 'undefined') {
+      
+      console.log('[applySnapshot] Setting auto-return timer (3 seconds) for client');
+      state.shouldAutoReturnToRoom = true;
+      
+      setTimeout(() => {
+        console.log('[applySnapshot] Auto-return timer fired on client, shouldAutoReturnToRoom:', state.shouldAutoReturnToRoom);
+        if (state.shouldAutoReturnToRoom) {
+          console.log('[applySnapshot] Executing auto-return to room (client)');
+          state.shouldAutoReturnToRoom = false;
+          if (window._magicballUI && window._magicballUI.returnToRoom) {
+            window._magicballUI.returnToRoom();
+          }
+        }
+      }, TIMING.AUTO_RETURN_TO_ROOM_DELAY);
+      } else {
+        console.warn('[applySnapshot] Auto-return conditions not met for client:', {
+          isOnlineMode: state.isOnlineMode,
+          hasSession: typeof window._magicballSession !== 'undefined',
+          isLoggedIn: window._magicballSession?.isLoggedIn?.(),
+          hasUI: typeof window._magicballUI !== 'undefined'
+        });
+    }
+  }
   
   // マップ状態を更新（壁破壊の同期）
   if (snapshot.map) {
@@ -675,38 +774,45 @@ function loop(ts) {
 }
 
 // ゲーム開始関数
-export function startGame(totalPlayers = 2, playerInfo = [], hostPlayerId = null) {
+export function startGame(totalPlayers = 2, playerInfo = [], hostPlayerId = null, mapSeed = undefined, sessionId = null) {
   // 既にゲーム中の場合は何もしない（重複呼び出しを防ぐ）
   if (state.gameMode === 'playing' || state.gameMode === 'countdown') {
     console.warn('[startGame] Already in playing/countdown mode, ignoring duplicate call');
     return;
   }
-  
+
   console.log('[startGame] Starting game with countdown:', { totalPlayers, playerInfo, hostPlayerId, currentMode: state.gameMode });
-  
+
   // ゲーム開始時にコントロールUIを非表示（カウントダウン開始時）
   const controlsDiv = document.getElementById('controls');
   if (controlsDiv) {
     controlsDiv.style.display = 'none';
     console.log('[startGame] Controls UI hidden at countdown start');
   }
-  
+
   // カウントダウン開始
   state.gameMode = 'countdown';
   state.countdown = 3;
-  
+  // セッションIDを固定（ホスト・クライアント間で共有する識別子）
+  state.gameSessionId = sessionId || Date.now();
+  if (!state.gameSessionId) {
+    console.error('[startGame] Failed to set gameSessionId', { incomingSessionId: sessionId });
+  } else {
+    console.log('[startGame] gameSessionId set', { gameSessionId: state.gameSessionId, incomingSessionId: sessionId });
+  }
+  showGameUI();
   const countdownInterval = setInterval(() => {
     state.countdown--;
     console.log('[startGame] Countdown:', state.countdown);
-    
+
     if (state.countdown <= 0) {
       clearInterval(countdownInterval);
       state.gameMode = 'playing';
       console.log('[startGame] Game started!');
-      
-      // ゲーム開始処理
-      resetGame(totalPlayers, playerInfo);
-      
+
+      // ゲーム開始処理（同期用mapSeedを必ず渡す）
+      resetGame(totalPlayers, playerInfo, mapSeed);
+
       // ゲーム開始処理を続ける
       continueGameStart(totalPlayers, playerInfo, hostPlayerId);
     }
@@ -719,6 +825,14 @@ export function startGame(totalPlayers = 2, playerInfo = [], hostPlayerId = null
 function continueGameStart(totalPlayers, playerInfo, hostPlayerId) {
   // オンラインモードの場合、ホスト判定を設定
   if (state.isOnlineMode) {
+    // ホストIDを状態に保持（入力送信先の安定化のため）
+    if (hostPlayerId !== null && hostPlayerId !== undefined) {
+      state.hostPlayerId = parseInt(hostPlayerId);
+      if (typeof window !== 'undefined') {
+        window._magicballHostPlayerIdGlobal = state.hostPlayerId;
+      }
+      console.log('[startGame] Stored hostPlayerId in state:', state.hostPlayerId);
+    }
     // hostPlayerIdが渡されている場合はそれを使用
     if (hostPlayerId !== null && typeof window !== 'undefined' && window.playerSession) {
       state.isHost = (parseInt(hostPlayerId) === parseInt(window.playerSession.playerId));
@@ -728,6 +842,14 @@ function continueGameStart(totalPlayers, playerInfo, hostPlayerId) {
     else if (typeof window !== 'undefined' && window.playerSession && playerInfo && playerInfo.length > 0) {
       state.isHost = (parseInt(window.playerSession.playerId) === parseInt(playerInfo[0].playerId));
       console.log('[startGame] Host status fallback (first player):', state.isHost);
+      // フォールバックでホストIDも保持
+      if (state.hostPlayerId === undefined || state.hostPlayerId === null) {
+        state.hostPlayerId = parseInt(playerInfo[0].playerId);
+        if (typeof window !== 'undefined') {
+          window._magicballHostPlayerIdGlobal = state.hostPlayerId;
+        }
+        console.log('[startGame] Fallback stored hostPlayerId:', state.hostPlayerId);
+      }
     }
     
     // WebRTC同期を開始
@@ -772,18 +894,7 @@ function handlePlayerDisconnected(playerId) {
     if (typeof window !== 'undefined' && window._magicballChatManager) {
       window._magicballChatManager.sendSystemMessage(`プレイヤー${playerId}が切断しました`);
     }
-    
-    // CPUプレイヤーも同時にゲームオーバーにする
-    state.players.forEach(p => {
-      if (p.isCPU && p.alive) {
-        console.log('[handlePlayerDisconnected] Marking CPU as dead:', p.id);
-        p.alive = false;
-        p.ballsLeft = 0;
-        p.lives = 0;
-      }
-    });
-    
-    // 即座にスナップショットを送信して状態を同期
+    // 切断プレイヤーのみ死亡扱い（CPUは巻き添えにしない）
     if (typeof broadcastSnapshot === 'function') {
       broadcastSnapshot();
     }
@@ -867,7 +978,13 @@ setupUIBindings(resetGame, startGame, togglePause);
 
 // グローバルに公開（ui.jsからの循環依存を回避）
 window._magicballStartGame = startGame;
+window._magicballResetGame = resetGame;
+window._magicballContinueGameStart = continueGameStart;
 window._magicballApplySnapshot = applySnapshot; // WebRTC同期用
+// UIから一元管理関数を呼べるように
+if (typeof window !== 'undefined') {
+  // window.enterGameStartPhase = undefined; // 不要: ESモジュールimportに統一
+}
 
 // UIのセットアップ（これが初期画面を決定する）
 initUI();

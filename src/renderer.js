@@ -858,66 +858,91 @@ function renderPausedScreen(ctx) {
  * ゲームオーバー/クリア画面
  */
 function renderGameOverScreen(ctx) {
-  ctx.fillStyle = 'rgba(0,0,0,0.8)';
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   
   ctx.fillStyle = '#fff';
   ctx.textAlign = 'center';
   
+  // タイトル表示
   if (state.gameMode === 'clear') {
-    ctx.font = 'bold 48px sans-serif';
-    ctx.fillText('ゲームクリア!', CANVAS_W / 2, CANVAS_H / 2 - 80);
+    ctx.font = 'bold 56px sans-serif';
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText('GAME CLEAR!', CANVAS_W / 2, CANVAS_H / 2 - 100);
   } else {
-    ctx.font = 'bold 48px sans-serif';
-    ctx.fillText('ゲームオーバー', CANVAS_W / 2, CANVAS_H / 2 - 80);
+    ctx.font = 'bold 56px sans-serif';
+    ctx.fillStyle = '#ff6b6b';
+    ctx.fillText('GAME OVER', CANVAS_W / 2, CANVAS_H / 2 - 100);
   }
   
-  // 勝者表示
+  // 勝者表示（大きく目立たせる）
   const alivePlayers = state.players.filter(p => p.alive);
   if (alivePlayers.length === 1) {
-    ctx.font = '32px sans-serif';
-    ctx.fillStyle = alivePlayers[0].color;
-    const labels = ['P1', 'P2', 'P3', 'P4'];
-    ctx.fillText(`${labels[alivePlayers[0].id - 1]} の勝利!`, CANVAS_W / 2, CANVAS_H / 2 - 20);
+    const winner = alivePlayers[0];
+    const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const winnerLabel = labels[winner.id - 1] || `P${winner.id}`;
+    
+    // 勝者のバッジ
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
+    ctx.fillRect(CANVAS_W / 2 - 150, CANVAS_H / 2 - 50, 300, 60);
+    
+    ctx.font = 'bold 40px sans-serif';
+    ctx.fillStyle = winner.color;
+    ctx.fillText(`🏆 Player ${winnerLabel} WIN!`, CANVAS_W / 2, CANVAS_H / 2 - 10);
+  } else if (alivePlayers.length === 0) {
+    ctx.font = '28px sans-serif';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('引き分け', CANVAS_W / 2, CANVAS_H / 2 - 20);
   }
   
-  // スコア表示
+  // スコアボード
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(CANVAS_W / 2 - 200, CANVAS_H / 2 + 20, 400, state.players.length * 35 + 20);
+  
   ctx.fillStyle = '#fff';
-  ctx.font = '20px sans-serif';
+  ctx.font = 'bold 22px sans-serif';
   state.players.forEach((p, i) => {
-    const labels = ['P1', 'P2', 'P3', 'P4'];
-    ctx.fillText(`${labels[i]}: ${p.score}点`, CANVAS_W / 2, CANVAS_H / 2 + 20 + i * 30);
+    const labels = ['A', 'B', 'C', 'D', 'E', 'F'];
+    const status = p.alive ? '👑' : '💀';
+    ctx.fillStyle = p.color;
+    ctx.fillText(`${status} Player ${labels[i]}: ${p.score}点`, CANVAS_W / 2, CANVAS_H / 2 + 50 + i * 35);
   });
   
   // レート変動表示（オンライン対戦時）
   if (typeof window._magicballRateChanges !== 'undefined' && window._magicballRateChanges) {
-    ctx.font = '16px sans-serif';
+    ctx.font = 'bold 18px sans-serif';
+    let yOffset = CANVAS_H / 2 + 50 + state.players.length * 35 + 30;
+    
     ctx.fillStyle = '#ffd700';
-    let yOffset = CANVAS_H / 2 + 20 + state.players.length * 30 + 20;
+    ctx.fillText('--- レート変動 ---', CANVAS_W / 2, yOffset);
+    yOffset += 30;
     
     for (const [playerId, rateChange] of Object.entries(window._magicballRateChanges)) {
       const change = rateChange.rate_change;
       const changeText = change >= 0 ? `+${change}` : `${change}`;
       const color = change >= 0 ? '#4ade80' : '#ef4444';
       ctx.fillStyle = color;
-      ctx.fillText(`P${playerId} レート: ${changeText} (${rateChange.rate_after})`, CANVAS_W / 2, yOffset);
+      ctx.font = '16px sans-serif';
+      ctx.fillText(`Player ${playerId}: ${changeText} → ${rateChange.rate_after}`, CANVAS_W / 2, yOffset);
       yOffset += 25;
     }
   }
   
-  // 操作説明
-  ctx.font = '18px sans-serif';
-  ctx.fillStyle = '#aaa';
-  
-  // オンライン対戦かどうかで表示を変える
+  // 次のアクション表示
   const isOnline = typeof window._magicballSession !== 'undefined' && 
                    window._magicballSession.isLoggedIn && 
                    window._magicballSession.isLoggedIn();
   
   if (isOnline) {
-    ctx.fillText('「ルームに戻る」ボタンでもう一度対戦できます', CANVAS_W / 2, CANVAS_H - 60);
+    // オンライン対戦の場合は自動復帰メッセージ
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillStyle = '#4da6ff';
+    ctx.fillText('3秒後に自動でルームに戻ります...', CANVAS_W / 2, CANVAS_H - 50);
   } else {
-    ctx.fillText('リスタートボタンをクリックして再開', CANVAS_W / 2, CANVAS_H - 60);
+    // オフラインの場合はリスタート案内
+    ctx.font = '18px sans-serif';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('リスタートボタンをクリックして再開', CANVAS_W / 2, CANVAS_H - 50);
   }
 }
 

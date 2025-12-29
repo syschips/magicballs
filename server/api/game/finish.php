@@ -253,7 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             // ルームのステータスを更新
-            $update_room = "UPDATE game_rooms SET status = 'finished', finished_at = NOW() 
+            $update_room = "UPDATE game_rooms SET status = 'waiting' 
                             WHERE room_id = :room_id";
             $update_room_stmt = $db->prepare($update_room);
             $update_room_stmt->bindParam(':room_id', $data->room_id);

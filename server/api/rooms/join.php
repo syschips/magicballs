@@ -32,6 +32,9 @@
  * @note ルームが満員、またはstatus='playing'の場合は参加できない
  */
 
+require_once '../config/database.php';
+require_once '../config/logger.php';
+
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: POST");
@@ -78,13 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit();
             }
             
-            if ($room['current_players'] >= $room['max_players']) {
-                http_response_code(400);
-                echo json_encode(["success" => false, "message" => "ルームが満員です"]);
-                exit();
-            }
-            
-            // 既にこのプレイヤーが参加しているかチェック
+            // 既にこのプレイヤーが参加しているかチェック（満員判定より先に実行）
             $check_query = "SELECT player_number FROM room_participants 
                            WHERE room_id = :room_id AND player_id = :player_id LIMIT 1";
             $check_stmt = $db->prepare($check_query);
@@ -93,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $check_stmt->execute();
             
             if ($check_stmt->rowCount() > 0) {
-                // 既に参加済みの場合は、そのプレイヤー番号を返す
+                // 既に参加済みの場合は、そのプレイヤー番号を返す（満員判定をスキップ）
                 $existing = $check_stmt->fetch();
                 $db->commit();
                 http_response_code(200);
@@ -102,6 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     "message" => "既に参加済みです",
                     "player_number" => $existing['player_number']
                 ]);
+                exit();
+            }
+            
+            // 満員チェック（新規参加者のみ）
+            if ($room['current_players'] >= $room['max_players']) {
+                http_response_code(400);
+                echo json_encode(["success" => false, "message" => "ルームが満員です"]);
                 exit();
             }
             
@@ -148,14 +152,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Exception $e) {
             // トランザクションロールバック
-            if ($db->inTransaction()) {
+            if (isset($db) && $db->inTransaction()) {
                 $db->rollBack();
             }
+            $logger = new Logger();
+            $logger->logError('join.php: エラー', '', $e);
             http_response_code(500);
             echo json_encode([
                 "success" => false, 
-                "message" => "サーバーエラー: " . $e->getMessage(),
-                "error_detail" => $e->getMessage()
+                "message" => "Server error"
             ]);
         }
     } else {

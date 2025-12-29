@@ -31,6 +31,7 @@ header("Access-Control-Allow-Methods: POST");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
 require_once '../config/database.php';
+require_once '../config/logger.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents("php://input"));
@@ -141,9 +142,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Exception $e) {
             // トランザクションロールバック
-            if ($db->inTransaction()) {
+            if (isset($db) && $db->inTransaction()) {
                 $db->rollBack();
             }
+            $logger = new Logger();
+            $logger->logError('leave.php: エラー', '', $e);
             http_response_code(500);
             echo json_encode(["success" => false, "message" => "Server error"]);
         }

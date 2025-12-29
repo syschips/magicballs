@@ -89,8 +89,14 @@ try {
     }
     
     // 参加者情報取得
+    // position カラムがない環境向けに player_number を position として返す
     $stmt = $db->prepare("
-        SELECT rp.player_id, p.display_name, rp.ball_type, rp.is_ready
+        SELECT rp.player_id,
+               rp.player_number AS position,
+               p.display_name,
+               rp.ball_type,
+               rp.is_ready,
+               rp.is_cpu
         FROM room_participants rp
         JOIN players p ON rp.player_id = p.player_id
         WHERE rp.room_id = :room_id
