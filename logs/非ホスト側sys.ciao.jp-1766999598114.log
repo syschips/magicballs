@@ -1,0 +1,323 @@
+ [WebRTC Module] LOADED - v2025-12-21-new
+ [Input] Setting up keyboard input
+ [initUI] Checking required DOM elements: Object
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [renderer] initializeSpriteAnimator called
+ [spriteAnimator] initSpriteAnimator called
+ [spriteAnimator] Attempting to load metadata from: /data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+/data/spriteSheet.json:1  Failed to load resource: the server responded with a status of 404 ()
+ [spriteAnimator] Failed to load from /data/spriteSheet.json - status: 404
+ [spriteAnimator] Attempting to load metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Successfully loaded metadata from: ./data/spriteSheet.json
+ [spriteAnimator] Metadata loaded successfully: 11 sprites
+ [spriteAnimator] Metadata keys: Array(11)
+ [spriteAnimator] Initialized successfully
+ [renderer] spriteAnimator initialized successfully
+ [renderer] getAnimatedSprite returned null for: https://sys.ciao.jp/mk/imgs/b-00.gif
+getAnimatedSpriteFrame @ renderer.js:201
+ ルーム参加: Object
+ チャットマネージャー初期化: Object
+ [fetchRoomState] Fetching room_id: 5622d460f1013a493017b25160ff6870
+ [fetchRoomState] Received data: Object
+ [Host Check] hostPlayerId=6, currentPlayerId=5, isHost=false, gameMode=classic
+ [fetchRoomState] Fetching room_id: 5622d460f1013a493017b25160ff6870
+ [fetchRoomState] Received data: Object
+ [Host Check] hostPlayerId=6, currentPlayerId=5, isHost=false, gameMode=classic
+ [fetchRoomState] Fetching room_id: 5622d460f1013a493017b25160ff6870
+ [fetchRoomState] Received data: Object
+ [Host Check] hostPlayerId=6, currentPlayerId=5, isHost=false, gameMode=classic
+ [updateParticipantList] Game start detected, executing checkAndStartGame
+ [checkAndStartGame] Set game mode: classic
+ [checkAndStartGame] Starting game: Object
+ [checkAndStartGame] 非ホスト: WebRTC初期化開始
+ [initWebRTCAndStartGame] called Object
+ [setupWebRTCMessageHandler] called Object
+ [initWebRTCAndStartGame] Previous WebRTC cleaned up
+ [WebRTC] Initializing connection... Object
+ [WebRTC] Initialized: Object
+ [WebRTC] Client connecting to host: 6
+ [WebRTC Participant] Waiting for offer from host: 6
+ [WebRTC] Starting signaling poll
+ [WebRTC] Received offer from: 6
+ [WebRTC] Creating answer connection to: 6
+ [WebRTC] Remote description set for 6, signalingState: have-remote-offer
+ [WebRTC] Local description set for 6, signalingState: stable
+ [WebRTC] ICE candidate generated for 6: candidate:1660627568 1 udp 2113937151 84fc787e-e28f-41d9-8b6c-39188659e572.local 64092 typ host generation 0 ufrag vv/f network-cost 999
+ [WebRTC] ICE candidate generated for 6: candidate:3741815623 1 udp 1677729535 27.139.108.135 64092 typ srflx raddr 0.0.0.0 rport 0 generation 0 ufrag vv/f network-cost 999
+ [WebRTC] ICE gathering complete for 6
+ [WebRTC] Answer sent to: 6
+webrtc.js:196 [WebRTC] ICE connection state with 6: checking
+webrtc.js:201 [WebRTC] Connection state with 6: Object
+uiGameStart.js:37 [WebRTC] Connection with 6: connecting
+webrtc.js:196 [WebRTC] ICE connection state with 6: connected
+uiGameStart.js:202 [WebRTC] Client connection check complete: connected
+uiGameStart.js:380 [WebRTC] Starting game with playerInfo: Array(2)
+uiGameStart.js:385 [initWebRTCAndStartGame] 非ホスト: 終了
+uiGameStart.js:573 [checkAndStartGame] 非ホスト: WebRTC初期化完了、ホストのstart messageを待機中
+webrtc.js:201 [WebRTC] Connection state with 6: Object
+uiGameStart.js:37 [WebRTC] Connection with 6: connected
+uiGameStart.js:39 [WebRTC] Successfully connected to 6
+webrtc.js:214 [WebRTC] DataChannel event received from 6, state: open
+webrtc.js:217 [WebRTC] DataChannel registered for: 6
+webrtc.js:244 [WebRTC] DataChannel opened with 6, readyState: open
+uiGameStart.js:82 [WebRTCMessageHandler] start message received Object
+ui.js:166 [enterGameStartPhase] called Object
+ui.js:173 [enterGameStartPhase] Stored hostPlayerId in state: 6
+main.js?v=1766999524034:89 [resetGame] Online mode: Object
+main.js?v=1766999524034:96 [resetGame] Using ballType: shiro
+main.js?v=1766999524034:100 [resetGame] Using game mode: classic
+main.js?v=1766999524034:112 [resetGame] Creating player 1: Object
+player.js:26 [createPlayer] Object
+main.js?v=1766999524034:123 [resetGame] Created human player 1: Object
+main.js?v=1766999524034:112 [resetGame] Creating player 2: Object
+player.js:26 [createPlayer] Object
+main.js?v=1766999524034:123 [resetGame] Created human player 2: Object
+main.js?v=1766999524034:134 [resetGame] Total players created: 2 Object
+main.js?v=1766999524034:145 [resetGame] My player: playerId=5, index=1
+main.js?v=1766999524034:838 [startGame] Stored hostPlayerId in state: 6
+main.js?v=1766999524034:843 [startGame] Host status from hostPlayerId: false Object
+main.js?v=1766999524034:861 [startGame] Starting WebRTC synchronization as CLIENT
+main.js?v=1766999524034:275 [WebRTC Sync] Client: Listening for snapshots
+main.js?v=1766999524034:873 [startGame] Game started: Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
+input.js:63 [Input] sendMoveInput Object
