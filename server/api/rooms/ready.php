@@ -99,7 +99,10 @@ try {
     $stmt->execute();
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    $all_ready = ($result['total'] > 0 && $result['total'] == $result['ready_count']);
+    // ホストのみの場合、または全員準備完了でゲーム開始可能
+    $total_players = (int)$result['total'];
+    $ready_players = (int)$result['ready_count'];
+    $all_ready = ($total_players > 0 && $total_players == $ready_players);
     
     // 全員準備完了なら、ルームのステータスを'playing'に変更
     if ($all_ready) {
