@@ -8,6 +8,7 @@ import { handleError, AppError, ErrorType } from './errorHandler.js';
 import { createAuthHandlers } from './uiAuth.js';
 import { createGameStartFlow } from './uiGameStart.js';
 import { createWaitingRoomFlow } from './uiWaitingRoom.js';
+import { initMobileControls, onShowCharSelect, onShowGameUI, onLeaveGameUI } from './mobileControls.js';
 
 // APIのベースURL（相対パス）
 const API_BASE_URL = './server/api';
@@ -224,6 +225,8 @@ function setCanvasVisibility(showCanvas, showHelp) {
  * @returns {void}
  */
 export function initUI() {
+  // モバイル向け制御の初期化（必要時のみ動作）
+  try { initMobileControls(); } catch (e) { console.warn('[Mobile] initMobileControls failed', e); }
   // セッション復元を試みる
   if (playerSession.restore()) {
     // セッションがある場合はキャラクター選択画面へ
@@ -877,6 +880,8 @@ function showCharSelectUI() {
   
   setCanvasVisibility(true, false);
   state.gameMode = 'charSelect';
+  // スマホ横向き案内（キャラ/ボール選択画面）
+  try { onShowCharSelect(); } catch {}
 }
 
 function showRoomSelectUI() {
@@ -900,6 +905,9 @@ function showWaitingRoomUI() {
   
   setCanvasVisibility(false, false);
   state.gameMode = 'waiting';
+
+  // モバイルUIのクリーンアップ（ゲーム画面から退場）
+  try { onLeaveGameUI(); } catch {}
 
   // ゲーム開始ブロードキャスト済みフラグをリセット（再戦時のスキップ防止）
   broadcastSentFlag.value = false;
@@ -941,6 +949,9 @@ export function showGameUI() {
   document.getElementById('gameUI').style.display = 'block';
   
   setCanvasVisibility(true, true);
+
+  // モバイルUI（フローティング方向キーと発射ボタン）
+  try { onShowGameUI(); } catch {}
 
   // オンライン時はオフライン専用の開始/CPU/リスタート操作を隠す
   const showOfflineControls = state.isOnlineMode === false;

@@ -67,6 +67,20 @@ function sendMoveInput() {
 }
 
 /**
+ * モバイルUIが入力状態を更新した際に呼び出す通知関数。
+ * オンラインクライアント時のみ、現在のキー状態に基づきホストへ入力を送る。
+ */
+export function notifyInputChanged() {
+  try {
+    if (state.isOnlineMode && !state.isHost) {
+      sendMoveInput();
+    }
+  } catch (e) {
+    console.warn('[Input] notifyInputChanged failed:', e);
+  }
+}
+
+/**
  * プレイヤーインデックスに応じたキーマッピングを取得
  * オンラインモードでは全員が矢印キーを使用
  */

@@ -489,3 +489,47 @@ h1{
 #sendChatBtn:hover {
   background: #1976d2;
 }
+
+/* —— モバイル向けUI —— */
+.mobile-landscape #container{width:100vw;max-width:100vw;margin:0;padding:0}
+.mobile-game canvas#game{width:100vw;height:100vh;max-height:100vh}
+.mobile-game #help{display:none}
+
+/* 表示用ディスプレイキャンバス（ブリット先） */
+#game-display{position:fixed;inset:0;z-index:9000;background:transparent}
+
+#mobile-orientation-overlay{
+  position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.7);z-index:10000
+}
+#mobile-orientation-overlay .m-overlay-inner{padding:16px;width:100%;display:flex;justify-content:center}
+#mobile-orientation-overlay .m-overlay-card{
+  background:#fff;color:#333;border-radius:12px;padding:20px;max-width:420px;width:90%;
+  box-shadow:0 12px 40px rgba(0,0,0,.35);
+}
+#mobile-orientation-overlay h3{margin:0 0 10px 0;color:#1976d2;text-align:center}
+#mobile-orientation-overlay p{margin:0 0 16px 0;text-align:center}
+#mobile-orientation-overlay .m-overlay-actions{display:flex;gap:12px;justify-content:center}
+#mobile-orientation-overlay button{background:#0f4c75;color:#fff;border:0;padding:8px 14px;border-radius:6px;cursor:pointer}
+#mobile-orientation-overlay button.primary{background:#2196f3}
+
+/* フローティング方向キー */
+#mobile-dpad{
+  position:fixed;z-index:9999;width:140px;height:140px;
+  left:16px;top:calc(100vh - 180px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;
+}
+#mobile-dpad .drag-handle{position:absolute;top:-10px;left:-10px;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.4)}
+#mobile-dpad .row{display:flex;gap:10px}
+#mobile-dpad .dir{background:rgba(15,76,117,.9);color:#fff;border:0;border-radius:14px;width:54px;height:54px;font-size:18px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+#mobile-dpad .dir:active{background:#1976d2}
+
+/* フローティング発射ボタン */
+#mobile-fire{
+  position:fixed;z-index:9999;width:auto;height:auto;
+  left:calc(100vw - 120px);top:calc(100vh - 140px);
+}
+#mobile-fire .drag-handle{position:absolute;top:-10px;right:-10px;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.4)}
+#mobile-fire .fire-btn{background:#e53935;color:#fff;border:0;border-radius:18px;padding:14px 16px;font-size:16px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+#mobile-fire .fire-btn:active{background:#c62828}
