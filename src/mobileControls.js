@@ -26,6 +26,25 @@ let overlayEl = null;
 let dpadEl = null;
 let fireEl = null;
 let dragState = { active: false, target: null, offsetX: 0, offsetY: 0 };
+let touchBlocker = null;
+
+function enableNoScroll() {
+  document.body.classList.add('mobile-no-scroll');
+  if (!touchBlocker) {
+    touchBlocker = (e) => { if (document.body.classList.contains('mobile-no-scroll')) e.preventDefault(); };
+    window.addEventListener('touchmove', touchBlocker, { passive: false });
+    window.addEventListener('wheel', touchBlocker, { passive: false });
+  }
+}
+
+function disableNoScroll() {
+  document.body.classList.remove('mobile-no-scroll');
+  if (touchBlocker) {
+    window.removeEventListener('touchmove', touchBlocker);
+    window.removeEventListener('wheel', touchBlocker);
+    touchBlocker = null;
+  }
+}
 
 function ensureOverlay() {
   if (overlayEl) return overlayEl;
@@ -207,10 +226,12 @@ function applyMobileCanvasLayout() {
   document.body.classList.add('mobile-landscape');
   // ゲーム中はヘルプ非表示（画面最大化）
   document.body.classList.add('mobile-game');
+  enableNoScroll();
 }
 
 function clearMobileCanvasLayout() {
   document.body.classList.remove('mobile-game');
+  disableNoScroll();
 }
 
 export function initMobileControls() {

@@ -451,6 +451,21 @@ h1{
   margin-left: 8px;
 }
 
+/* パワーアップ凡例などアイコン文字の選択防止（コピー抑止） */
+.no-select-icon { user-select: none; -webkit-user-select: none; }
+
+/* テキストを使わない三角アイコン（コピー抑止） */
+.icon-tri{
+  display:inline-block;
+  width:0;height:0;
+  border-left:8px solid transparent;
+  border-right:8px solid transparent;
+  border-bottom:12px solid #66ff66;
+  vertical-align:middle;
+  margin-right:4px;
+  transform: translateY(-1px);
+}
+
 #chatInputContainer {
   display: flex;
   gap: 10px;
@@ -495,8 +510,33 @@ h1{
 .mobile-game canvas#game{width:100vw;height:100vh;max-height:100vh}
 .mobile-game #help{display:none}
 
+/* スクロール・選択抑止（モバイルゲーム中のみ） */
+.mobile-no-scroll{overscroll-behavior:none;touch-action:none;overflow:hidden;-webkit-user-select:none;user-select:none}
+#game-display,#game{touch-action:none;-webkit-user-select:none;user-select:none}
+
+/* モバイルゲーム時のサイドヘルプ（左右の余白に表示） */
+#mobileSideHelp{display:none}
+.mobile-game #mobileSideHelp{display:flex;position:fixed;inset:0;pointer-events:none;justify-content:space-between;align-items:flex-start;padding:12px;z-index:8400}
+.mobile-game #mobileSideHelp .side{width:18vw;max-width:140px;min-width:96px;height:100%;display:flex;justify-content:flex-start}
+.mobile-game #mobileSideHelp .side-card{
+  margin-top:12px;
+  background:rgba(0,0,0,0.55);
+  color:#e6f7ff;
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:12px;
+  padding:12px;
+  font-size:12px;
+  line-height:1.5;
+  pointer-events:none;
+  box-shadow:0 8px 20px rgba(0,0,0,0.35);
+}
+.mobile-game #mobileSideHelp .side-title{font-weight:700;margin-bottom:6px;font-size:13px;letter-spacing:0.02em;color:#90caf9}
+.mobile-game #mobileSideHelp ul{margin:0;padding-left:16px;list-style:disc}
+.mobile-game #mobileSideHelp li{margin:4px 0}
+
 /* 表示用ディスプレイキャンバス（ブリット先） */
-#game-display{position:fixed;inset:0;z-index:9000;background:transparent}
+#game-display{position:fixed;inset:0;z-index:9500;background:transparent}
+#game{position:relative;z-index:9200}
 
 #mobile-orientation-overlay{
   position:fixed;inset:0;display:none;align-items:center;justify-content:center;

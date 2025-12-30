@@ -108,6 +108,30 @@
 
     <canvas id="game" width="864" height="776" style="display:none;"></canvas>
 
+    <!-- モバイル用サイドヘルプ（ゲーム画面左右の余白に表示） -->
+    <div id="mobileSideHelp" class="mobile-side-help" aria-hidden="true">
+      <div class="side help-left">
+        <div class="side-card">
+          <div class="side-title">操作</div>
+          <ul>
+            <li>移動: 画面左の十字キー</li>
+            <li>発射: 画面右の●ボタン</li>
+            <li>ESC / 一時停止: メニュー</li>
+          </ul>
+        </div>
+      </div>
+      <div class="side help-right">
+        <div class="side-card">
+          <div class="side-title">ヒント</div>
+          <ul>
+            <li>ブロック破壊でパワーアップ</li>
+            <li>爆風に当たるとライフ減少</li>
+            <li>最後まで生き残ったら勝利</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
     <div id="help" style="display:none;">
       <h2>操作方法</h2>
       <p><strong>Player 1:</strong> 矢印キーで移動、<strong>スペース</strong> でボール発射</p>
@@ -134,9 +158,9 @@
 
       <h2>従来のアイテム</h2>
       <ul>
-        <li><strong style="color:#ff6666;">● +B (赤い円)</strong>：同時に設置できるボール数 +1</li>
-        <li><strong style="color:#66ff66;">▲ +R (緑の三角)</strong>：爆発範囲 +1タイル</li>
-        <li><strong style="color:#6666ff;">► +S (青い矢印)</strong>：プレーヤー移動速度 +0.5</li>
+        <li><strong style="color:#ff6666;" class="no-select-icon">● +B (赤い円)</strong>：同時に設置できるボール数 +1</li>
+        <li><strong class="no-select-icon"><span class="icon-tri"></span>+R (緑の三角)</strong>：爆発範囲 +1タイル</li>
+        <li><strong style="color:#6666ff;" class="no-select-icon">► +S (青い矢印)</strong>：プレーヤー移動速度 +0.5</li>
       </ul>
     </div>
   </div>
