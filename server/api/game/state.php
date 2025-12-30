@@ -23,7 +23,7 @@
  *     @property string display_name 表示名
  *     @property string ball_type ボールタイプ
  *     @property bool is_ready 準備完了フラグ
- *   @property object|null game_state ゲーム状態（playing時のみ）
+ *   @property object|null game_state ゲーム状態（永続化は廃止済みのため常にnull）
  * 
  * @database game_rooms テーブル
  *   - room_id: VARCHAR(32) PRIMARY KEY
@@ -38,7 +38,7 @@
  *   - player_id: INT PRIMARY KEY
  *   - display_name: VARCHAR(50) NOT NULL
  * 
- * @note 待機画面で100msごとにポーリングされる
+ * @note 待機画面で定期ポーリングされる
  */
 
 header('Content-Type: application/json');
@@ -106,26 +106,9 @@ try {
     $stmt->execute();
     $participants = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // ゲーム状態取得（全プレイヤーの状態）
+    // ゲーム状態の永続化は廃止済み
     $game_state = null;
-    if ($room['status'] === 'playing') {
-        $stmt = $db->prepare("
-            SELECT player_id, state_data, updated_at 
-            FROM game_state 
-            WHERE room_id = :room_id
-        ");
-        $stmt->bindParam(':room_id', $room_id);
-        $stmt->execute();
-        $state_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        if ($state_rows) {
-            $game_state = [];
-            foreach ($state_rows as $row) {
-                $game_state[$row['player_id']] = json_decode($row['state_data'], true);
-            }
-        }
-    }
-    
+
     echo json_encode([
         'success' => true,
         'room' => [
@@ -139,6 +122,7 @@ try {
             'host_player_id' => $room['host_player_id']
         ],
         'participants' => $participants,
+        // ゲーム状態は常にnullを返却（WebRTC同期に移行済み）
         'game_state' => $game_state
     ]);
     

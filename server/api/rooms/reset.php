@@ -78,12 +78,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $reset_stmt->bindParam(':room_id', $data->room_id);
             $reset_stmt->execute();
             
-            // ゲーム状態データを削除
-            $delete_state = "DELETE FROM game_state WHERE room_id = :room_id";
-            $delete_stmt = $db->prepare($delete_state);
-            $delete_stmt->bindParam(':room_id', $data->room_id);
-            $delete_stmt->execute();
-            
             // 前のセッションのWebRTCシグナリングデータを削除（再接続時の ICE候補重複を防止）
             $delete_signaling = "DELETE FROM room_signaling WHERE room_id = :room_id";
             $signaling_stmt = $db->prepare($delete_signaling);

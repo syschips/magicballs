@@ -2,15 +2,11 @@
 
 ## 概要
 
-キャラクター（プレイヤー）とボールのアニメーション GIF を Canvas で正しく再生するために、以下の方針で実装を進めています：
+キャラクター（プレイヤー）とボールのGIFを PNG スプライトシート化し、Canvasで滑らかに再生するための現状まとめです。
 
-1. **現在の状態**：GIF ファイルを Image オブジェクトで読み込み、Canvas に描画
-   - ❌ 問題：Canvas は GIF アニメーションをサポートしない（フレーム 0 のみ表示）
-
-2. **段階的改善戦略**：
-   - **フェーズ 1（完了）**：新しいアニメーション管理モジュール `spriteAnimator.js` を実装
-   - **フェーズ 2（計画中）**：GIF → PNG スプライトシート変換ツール使用
-   - **フェーズ 3（計画中）**：段階的に GIF を置き換え
+- **現在の状態**: `imgs/*.png` と `data/spriteSheet.json` に基づくスプライトシートを `spriteAnimator.js` 経由で利用。GIFはフォールバックとして同梱。
+- **目的**: GIFの1フレーム固定描画を解消し、方向ごとのアニメーションを再生する。
+- **方針**: PNGスプライトシートを正とし、必要に応じてPythonスクリプトで再生成する。
 
 ---
 
@@ -29,12 +25,12 @@ src/
   │   └─ メタデータ解析
   
 data/
-  └─ spriteSheet.json (新規)
-      └─ 各スプライトのメタデータ（GIF/PNG対応）
+  └─ spriteSheet.json (運用中)
+      └─ PNGスプライトシートのフレームメタデータ
 
 imgs/
-  ├─ *.gif (既存、アニメーション未実装状態)
-  └─ *.png (将来：PNG スプライトシート)
+  ├─ *.png (現在の描画に使用するスプライトシート)
+  └─ *.gif (フォールバック用に同梱)
 
 convert_gif_to_spritesheet.py (新規)
   └─ GIF → PNG スプライトシート変換ツール
@@ -43,6 +39,8 @@ convert_gif_to_spritesheet.py (新規)
 ---
 
 ## GIF → PNG スプライトシート変換手順
+
+`imgs/*.png` と `data/spriteSheet.json` は既に生成済みです。アセットを差し替えたりフレーム時間を調整する場合は、以下の手順で再生成します。
 
 ### 前提条件
 
@@ -208,45 +206,12 @@ function renderBalls(ctx) {
 
 ---
 
-## 段階的置き換えの流れ
+## 運用フロー
 
-### Step 1: 現在（GIF 動作確認）
-
-✅ `spriteAnimator.js` と `renderer.js` の統合が完了  
-✅ GIF はそのまま動作（アニメーション未実装）  
-⚠️ ゲーム起動時に console.log で確認
-
-```bash
-# ブラウザコンソールで確認
-[spriteAnimator] Metadata loaded: 11 sprites
-[renderer] spriteAnimator initialized
-```
-
-### Step 2: 1 つ の GIF をテスト変換
-
-```bash
-# 例：k-00.gif だけを変換テスト
-python convert_gif_to_spritesheet.py
-```
-
-その後、ブラウザで動作確認：
-- 起動時のエラーがないか
-- プレイヤーキャラクターがアニメーション表示されるか
-- ゲーム中の処理が安定しているか
-
-### Step 3: 全 GIF を変換
-
-問題がなければ、全ファイルを変換：
-
-```bash
-python convert_gif_to_spritesheet.py --input ./imgs --output ./imgs
-```
-
-### Step 4: サーバ配置前の確認
-
-1. ローカルで全機能動作確認
-2. ネットワークテスト（複数クライアント）
-3. 本番環境へのデプロイ前チェック
+1. **現状**: すべてPNGスプライトシートで描画（metadataは`data/spriteSheet.json`）。
+2. **単体調整**: 1枚だけ修正する場合は対象GIF/PNGを差し替えた上でスクリプトを実行し、ゲーム内表示を確認。
+3. **一括再生成**: まとめて差し替える場合は `convert_gif_to_spritesheet.py --input ./imgs --output ./imgs --metadata ./data/spriteSheet.json` を実行。
+4. **デプロイ前確認**: 複数クライアントで起動確認し、コンソール警告がないかを確認。
 
 ---
 

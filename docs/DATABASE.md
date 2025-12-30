@@ -16,7 +16,6 @@
 | room_participants | ルーム参加者 | 16 |
 | game_history | ゲーム履歴 | 6 |
 | rate_history | レート履歴 | 7 |
-| game_state | ゲーム状態 | 4 |
 | room_messages | チャットメッセージ | 6 |
 | system_logs | システムログ | 10 |
 
@@ -62,6 +61,7 @@
 | current_players | INT | NO | - | 0 | 現在のプレイヤー数 |
 | host_player_id | INT | NO | FK, IDX | - | ホストのプレイヤーID |
 | game_time | INT | NO | - | 180 | ゲーム時間（秒） |
+| game_mode | ENUM | NO | IDX | 'classic' | ゲームモード（classic/party） |
 | status | ENUM | NO | IDX | 'waiting' | ステータス（waiting/playing/finished） |
 | created_at | TIMESTAMP | NO | - | CURRENT_TIMESTAMP | 作成日時 |
 | started_at | TIMESTAMP | YES | - | NULL | 開始日時 |
@@ -168,29 +168,7 @@
 
 ---
 
-### 6. game_state（ゲーム状態）
-
-リアルタイムゲーム状態の同期用（現在は使用頻度低）。
-
-| カラム名 | 型 | NULL | キー | デフォルト | 説明 |
-|---------|---|------|-----|-----------|------|
-| room_id | VARCHAR(32) | NO | PK, FK | - | ルームID |
-| player_id | INT | NO | PK, FK | - | プレイヤーID |
-| state_data | TEXT | NO | - | - | 状態データ（JSON） |
-| updated_at | TIMESTAMP | NO | - | CURRENT_TIMESTAMP | 更新日時 |
-
-**インデックス**:
-- PRIMARY KEY: (room_id, player_id)
-- FOREIGN KEY: room_id → game_rooms(room_id)
-- FOREIGN KEY: player_id → players(player_id)
-
-**用途**:
-- ゲーム状態のバックアップ
-- 再接続時の状態復元
-
----
-
-### 7. room_messages（チャットメッセージ）
+### 6. room_messages（チャットメッセージ）
 
 ルーム内のチャットメッセージを保存。
 
@@ -213,9 +191,8 @@
 - チャット履歴の保存
 - メッセージ取得（ポーリング）
 
----
 
-### 8. system_logs（システムログ）
+### 7. system_logs（システムログ）
 
 システム全体のログを保存（バックオフィスで閲覧）。
 
@@ -255,14 +232,12 @@ players
   ├─ (1) player_id → (N) room_participants
   ├─ (1) player_id → (N) game_history (winner_id)
   ├─ (1) player_id → (N) rate_history
-  ├─ (1) player_id → (N) game_state
   ├─ (1) player_id → (N) room_messages
   └─ (1) player_id → (N) system_logs
 
 game_rooms
   ├─ (1) room_id → (N) room_participants
   ├─ (1) room_id → (N) game_history
-  ├─ (1) room_id → (N) game_state
   └─ (1) room_id → (N) room_messages
 
 game_history
@@ -278,7 +253,6 @@ game_history
 | room_participants | ルーム削除時にカスケード削除 | CASCADE |
 | game_history | 永続 | 手動削除のみ |
 | rate_history | 永続 | 手動削除のみ |
-| game_state | ルーム削除時にカスケード削除 | CASCADE |
 | room_messages | ルーム削除時にカスケード削除 | CASCADE |
 | system_logs | 30日間 | 自動削除（logger.php） |
 

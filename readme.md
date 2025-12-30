@@ -13,6 +13,7 @@ MagicBall は、WebRTCを使用したP2P通信により、最大6人で対戦で
 -  **レーティングシステム**: Eloレーティングベース
 -  **チャット機能**: ゲーム中のコミュニケーション
 -  **AI対戦**: CPU相手のプレイ
+-  **ゲームモード**: クラシック（レート変動あり） / パーティ（レート変動なし・残機3）
 -  **ホスト自動引き継ぎ**: ホスト切断時の自動移行
 -  **バックオフィス**: システムログの管理画面
 
@@ -69,26 +70,27 @@ MagicBall は、WebRTCを使用したP2P通信により、最大6人で対戦で
 
 ```
 project-root/
- index.html              # ゲームのメインHTML
+ index.html                 # ゲームのメインHTML
  css/
-    style.css          # スタイルシート
- src/                   # フロントエンドJS
-    main.js           # ゲームループ
-    ui.js             # UI管理
-    api.js            # API通信
-    player.js         # プレイヤー制御
-    ai.js             # AI制御
-    ...               # その他モジュール
- server/               # バックエンドPHP
-    api/             # REST API
-    admin/           # バックオフィス
-    database/        # スキーマ定義
-    install.php      # インストーラー
- docs/                # ドキュメント
-     FEATURES.md
-     FILE_STRUCTURE.md
-     DATABASE.md
-     INSTALLATION.md
+    style.css               # スタイルシート
+ data/
+    spriteSheet.json        # PNGスプライトシートのメタデータ
+ imgs/                     # PNGスプライトシートやアセット
+ logs/                     # アプリケーションログ
+ src/                      # フロントエンドJS
+    main.js                 # ゲームループ
+    ui.js                   # UI管理
+    api.js                  # API通信
+    player.js               # プレイヤー制御
+    ai.js                   # AI制御
+    ...                     # その他モジュール
+ server/                   # バックエンドPHP
+    api/                    # REST API
+    admin/                  # バックオフィス
+    database/               # スキーマ定義
+    install.php             # インストーラー
+ docs/                     # ドキュメント一式
+ convert_gif_to_spritesheet.py # GIF→PNG変換スクリプト（再生成用）
 ```
 
 詳細は [ファイル構成](docs/FILE_STRUCTURE.md) を参照してください。
@@ -189,7 +191,7 @@ mysqldump -u root -p magicball > backup.sql
 - 全プレイヤーが準備完了しているか確認
 
 ### 画像が表示されない
-- `imgs/` ディレクトリにGIFファイルが存在するか確認
+- `data/spriteSheet.json` と `imgs/` 配下のPNGスプライトシートが配置されているか確認
 - デバッグモードで確認: `http://your-domain/index.html?debug=on`
 - ブラウザのコンソールでエラーを確認
 
@@ -205,4 +207,4 @@ mysqldump -u root -p magicball > backup.sql
 
 ---
 
-**ドキュメント更新日**: 2025年12月29日
+**ドキュメント更新日**: 2025年12月30日

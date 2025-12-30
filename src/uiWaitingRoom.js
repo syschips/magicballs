@@ -25,7 +25,6 @@ export function createWaitingRoomFlow({
 }) {
   let roomListPollingInterval = null;
   let waitingRoomPollingInterval = null;
-  let waitingRoomHeartbeatInterval = null;
   const hasDetectedGameStart = hasDetectedGameStartFlag || { value: false };
 
   function startRoomListPolling() {
@@ -78,28 +77,12 @@ export function createWaitingRoomFlow({
     waitingRoomPollingInterval = setInterval(async () => {
       await updateParticipantList();
     }, TIMING.WAITING_ROOM_POLLING_INTERVAL);
-    waitingRoomHeartbeatInterval = setInterval(async () => {
-      if (!playerSession.currentRoomId) return;
-      try {
-        await fetch(`${API_BASE_URL}/game/update.php`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ room_id: playerSession.currentRoomId })
-        });
-      } catch (err) {
-        console.warn('[waitingRoomHeartbeat] failed', err);
-      }
-    }, 180000);
   }
 
   function stopWaitingRoomPolling() {
     if (waitingRoomPollingInterval) {
       clearInterval(waitingRoomPollingInterval);
       waitingRoomPollingInterval = null;
-    }
-    if (waitingRoomHeartbeatInterval) {
-      clearInterval(waitingRoomHeartbeatInterval);
-      waitingRoomHeartbeatInterval = null;
     }
   }
 

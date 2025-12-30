@@ -5,16 +5,16 @@
 ```
 Magicball/
 ├── index.html              # メインHTMLファイル（エントリーポイント）
-├── index-nocache.html      # キャッシュ無効版HTML（開発用）
 ├── css/
 │   └── style.css          # メインスタイルシート
-├── imgs/                  # 画像アセット（スプライト）
-│   ├── k-00.gif ~ k-07.gif  # キャラクタースプライト（8方向）
-│   └── b-00.gif ~ b-02.gif  # ボールスプライト（3種類）
+├── data/
+│   └── spriteSheet.json   # PNGスプライトシートのメタデータ
+├── imgs/                  # 画像アセット（GIFとPNGスプライトシート）
 ├── src/                   # フロントエンドJavaScriptソースコード
 ├── server/                # バックエンドPHPコード
 ├── docs/                  # プロジェクトドキュメント
-└── 指示/                  # 開発指示・メモ（削除可能）
+├── logs/                  # サーバー側のログ出力先
+└── convert_gif_to_spritesheet.py # GIF→PNG変換スクリプト
 ```
 
 ## フロントエンド（src/）
@@ -48,10 +48,11 @@ Magicball/
 
 | ファイル | 役割 | 備考 |
 |---------|------|------|
-| **k-00.gif ~ k-07.gif** | キャラクタースプライト | k-00～k-03: アイドル（上下左右）<br>k-04～k-07: 移動（上下左右） |
-| **b-00.gif ~ b-02.gif** | ボールスプライト | b-00: 黒ボール<br>b-01: 白ボール<br>b-02: 黄色ボール |
+| **k-00.gif ~ k-07.gif / k-00.png ~ k-07.png** | キャラクタースプライト | GIFとPNGを同名で保持。PNG版はスプライトシート化済み。<br>k-00～k-03: アイドル（上下左右）<br>k-04～k-07: 移動（上下左右） |
+| **b-00.gif ~ b-02.gif / b-00.png ~ b-02.png** | ボールスプライト | GIFとPNGを同名で保持。PNG版はスプライトシート化済み。<br>b-00: 黒ボール<br>b-01: 白ボール<br>b-02: 黄色ボール |
+| **data/spriteSheet.json** | スプライトメタデータ | PNGスプライトシートのフレーム定義を保持 |
 
-**注**: `?debug=on` URLパラメータで画像を無効化し、シンプルな図形で描画できます。
+**注**: `?debug=on` URLパラメータでスプライト描画を無効化し、シンプルな図形で描画できます。
 
 ### UI・通信
 
@@ -70,7 +71,9 @@ Magicball/
 
 | ファイル | 役割 | 主な機能 |
 |---------|------|---------|
-| **constants.js** | 定数定義 | ゲーム定数、設定値、タイミング定数 || **config.js** | 設定管理 | タイミング設定、ボールタイプ設定 || **utils.js** | ユーティリティ関数 | 汎用関数、ヘルパー関数 |
+| **constants.js** | 定数定義 | ゲーム定数、設定値、タイミング定数 |
+| **config.js** | 設定管理 | タイミング設定、ボールタイプ設定 |
+| **utils.js** | ユーティリティ関数 | 汎用関数、ヘルパー関数 |
 | **errorHandler.js** | エラーハンドリング | 統一されたエラー処理、エラーログ記録 |
 
 ## バックエンド（server/）
@@ -99,7 +102,6 @@ Magicball/
 | ファイル | エンドポイント | 役割 |
 |---------|--------------|------|
 | **state.php** | GET /api/game/state.php | ゲーム状態取得 |
-| **update.php** | POST /api/game/update.php | ゲーム状態更新 |
 | **finish.php** | POST /api/game/finish.php | ゲーム終了処理 |
 
 #### チャット（chat/）
@@ -119,8 +121,8 @@ Magicball/
 |---------|------|---------|
 | **database.php** | データベース接続 | PDO接続管理、エラーハンドリング |
 | **logger.php** | ログ記録 | システムログのDB保存、ログレベル管理 |
-| **config.php** | 設定ファイル | DB接続情報（自動生成、Git管理外） |
-| **config.sample.php** | 設定サンプル | config.php のテンプレート |
+| **config.php** | 設定ファイル | DB接続情報（server/api/config/ に自動生成、Git管理外） |
+| **server/config/config.sample.php** | 設定サンプル | config.php のテンプレート |
 
 ### データベース（server/database/）
 
@@ -161,32 +163,6 @@ Magicball/
 | **.eslintrc.json** | ESLint設定（コード品質チェック） |
 | **.gitignore** | Git管理対象外ファイル指定 |
 
-## 削除可能なファイル（開発履歴・メモ）
-
-以下は開発中に作成された説明ファイルで、本番環境では不要：
-
-```
-指示/
-├── AI_SYNC_AND_UI_FIXES.md
-├── COMPREHENSIVE_ONLINE_SUPPORT.md
-├── ONLINE_PLAYER_CONTROL_FIX_COMPLETED.md
-└── ONLINE_PLAYER_CONTROL_ISSUE.md
-
-ルート/
-├── CODE_QUALITY_REPORT.md
-├── CODE_REVIEW_UI.md
-├── ESLINT_GUIDE.md
-├── IMPLEMENTATION_SUMMARY.md
-├── REFACTORING_COMPLETED.md
-└── REFACTORING_PLAN.md
-
-server/
-├── LOGGING.md
-├── README.md（古いREADME）
-├── README_NEW.md（古いREADME）
-└── SETUP.md（古いセットアップガイド）
-```
-
 ## データフロー
 
 ### 1. ゲーム起動フロー
@@ -216,7 +192,7 @@ src/uiAuth.js（ボールタイプ選択）
   → src/ui.js（ルーム作成 or 参加）
   → server/api/rooms/create.php or join.php
   → src/uiWaitingRoom.js（待機ルーム画面、ポーリング開始）
-  → server/api/rooms/state.php（定期ポーリング）
+  → server/api/game/state.php（参加者・状態の取得）
   → src/uiWaitingRoom.js（全員準備完了検知）
   → src/uiGameStart.js（checkAndStartGame実行）
   → src/webrtc.js（WebRTC接続確立）

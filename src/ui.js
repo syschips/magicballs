@@ -591,7 +591,6 @@ async function handleLeaveRoom() {
  * 待機ルームのポーリング（参加者情報更新）
  */
 let waitingRoomPollingInterval = null;
-let waitingRoomHeartbeatInterval = null;
 // フラグ: ゲーム開始フロー検知時に設定し、重複開始を防止（ラップ済みの hasDetectedGameStartFlag を使用）
 
 /**

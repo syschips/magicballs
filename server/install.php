@@ -308,7 +308,7 @@ mb_internal_encoding('UTF-8');
                         if (isset($_POST['drop_existing'])) {
                             echo '<div class="alert alert-info">⚠️ 既存のテーブルを削除しています...</div>';
                             $conn->exec('SET FOREIGN_KEY_CHECKS = 0');
-                            $tables = ['system_logs', 'rate_history', 'game_history', 'room_messages', 'game_state', 'room_participants', 'game_rooms', 'players'];
+                            $tables = ['system_logs', 'rate_history', 'game_history', 'room_messages', 'room_participants', 'game_rooms', 'players'];
                             foreach ($tables as $table) {
                                 $conn->exec("DROP TABLE IF EXISTS `{$table}`");
                             }
@@ -343,7 +343,7 @@ mb_internal_encoding('UTF-8');
                     echo '<div class="alert alert-success">';
                     echo '<strong>✓ データベースの初期化が完了しました</strong><br>';
                     echo 'テーブルとサンプルデータを作成しました。<br>';
-                    echo '作成されたテーブル: players, game_rooms, room_participants, room_messages, game_history, rate_history, game_state, system_logs';
+                    echo '作成されたテーブル: players, game_rooms, room_participants, room_messages, game_history, rate_history, system_logs';
                     echo '</div>';
                     
                     echo '<div class="alert alert-success">';

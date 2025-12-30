@@ -88,17 +88,6 @@ CREATE TABLE IF NOT EXISTS rate_history (
     INDEX idx_player_recorded (player_id, recorded_at DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ゲーム状態テーブル（リアルタイム同期用）
-CREATE TABLE IF NOT EXISTS game_state (
-    room_id VARCHAR(32) NOT NULL,
-    player_id INT NOT NULL,
-    state_data TEXT NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (room_id, player_id),
-    FOREIGN KEY (room_id) REFERENCES game_rooms(room_id) ON DELETE CASCADE,
-    FOREIGN KEY (player_id) REFERENCES players(player_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- チャットメッセージテーブル
 CREATE TABLE IF NOT EXISTS room_messages (
     message_id INT AUTO_INCREMENT PRIMARY KEY,
