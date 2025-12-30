@@ -165,12 +165,12 @@ mysqldump -u root -p magicball > backup.sql
 
 **注意**: 本番環境では必ず削除してください。
 
-## バックオフィス
+バックオフィス
 
 システムログを閲覧検索できる管理画面：
 
 - **URL**: `http://your-domain/server/admin/`
-- **ログイン**: ゲームのユーザーアカウントを使用
+- **ログイン**: DB接続ユーザー（ `db_user` / `db_pass`）を使用
 - **機能**: ログ検索、統計表示、詳細表示
 
 詳細は [バックオフィスREADME](server/admin/README.md) を参照してください。

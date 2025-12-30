@@ -224,15 +224,29 @@ mb_internal_encoding('UTF-8');
                     mkdir(__DIR__ . '/api/config', 0755, true);
                 }
 
+                // 一時的に厳格なumaskを設定して600で作成（Windowsでは無効な場合あり）
+                $originalUmask = null;
+                if (function_exists('umask')) {
+                    $originalUmask = umask(0177); // 600想定
+                }
+
                 if (file_put_contents($configPath, $configContent) === false) {
                     throw new Exception('設定ファイルの作成に失敗しました。書き込み権限を確認してください。');
                 }
-                
+                if ($originalUmask !== null) {
+                    umask($originalUmask);
+                }
+
                 // パーミッション設定（Windowsでは効果がない場合がある）
-                if (!@chmod($configPath, 0600)) {
+                $chmodSucceeded = @chmod($configPath, 0600);
+                if (!$chmodSucceeded) {
                     echo '<div class="alert alert-info">';
                     echo '<strong>⚠️ 警告</strong><br>';
-                    echo 'config.phpのパーミッション設定に失敗しました。手動で読み取り専用に設定することを推奨します。';
+                    echo 'config.phpのパーミッションを600に変更できませんでした。手動で設定してください（所有者のみ読み書き）。';
+                    echo '</div>';
+                } else {
+                    echo '<div class="alert alert-success">';
+                    echo 'config.phpのパーミッションを600に設定しました。';
                     echo '</div>';
                 }
 
@@ -354,8 +368,7 @@ mb_internal_encoding('UTF-8');
                     echo '<div class="alert alert-info">';
                     echo '<strong>📊 バックオフィスについて</strong><br><br>';
                     echo '1. <strong>ログビューアーURL:</strong> <code>server/admin/index.php</code><br>';
-                    echo '2. <strong>ログイン認証:</strong> ゲームの既存ユーザーアカウントでログインできます<br>';
-                    echo '   例: guest1 / test123<br><br>';
+                    echo '2. <strong>ログイン認証:</strong> DB接続ユーザー（config.php の <code>db_user</code>/<code>db_pass</code>）を使用します<br><br>';
                     echo '3. <strong>機能:</strong> システムログの閲覧、検索、統計表示<br>';
                     echo '4. <strong>ログ保存:</strong> 全てのログはデータベースに保存されます（30日間保持）';
                     echo '</div>';
