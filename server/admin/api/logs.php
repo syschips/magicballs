@@ -53,8 +53,11 @@ try {
             }
             
             if (!empty($_GET['keyword'])) {
-                $whereClauses[] = "(message LIKE :keyword OR context LIKE :keyword)";
-                $params[':keyword'] = '%' . $_GET['keyword'] . '%';
+                // MySQL のネイティブプリペアドでは同一プレースホルダの再利用が効かないため別名を割り当てる
+                $whereClauses[] = "(message LIKE :keyword_msg OR context LIKE :keyword_ctx)";
+                $keyword = '%' . $_GET['keyword'] . '%';
+                $params[':keyword_msg'] = $keyword;
+                $params[':keyword_ctx'] = $keyword;
             }
             
             $whereSQL = !empty($whereClauses) ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
